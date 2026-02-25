@@ -9,6 +9,7 @@
 
 ## Agent Execution
 
+- [ ] Save/load 'codex exec' command string and text prompt in board.json so it persists between executions.
 - [ ] Capture stdout/stderr and exit code for each agent run and persist it per task.
 - [ ] Open task run details by double-clicking completed tasks (`Done`) to view execution output/history.
 - [ ] Add retry policy controls for failed tasks (manual retry, auto-retry with max attempts, backoff).

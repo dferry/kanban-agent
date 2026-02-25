@@ -27,9 +27,9 @@ class AgentInvocation:
 
 def default_prompt_template() -> str:
     return (
-        "You are working on one task in a larger kanban project. "
-        "Read AGENTS.md in the repository first, then implement this task.\n\n"
-        f"Task title: {TASK_TEXT_TOKEN}\n"
+        "You are working on one task in a larger kanban board project. "
+        "Read AGENTS.md to understand the repository and KANBAN.md to understand how to add new tasks to the kanban board. Then implement this task.\n\n"
+        f"Task description: {TASK_TEXT_TOKEN}\n"
         "When finished, leave the workspace in a clean, reviewable state."
     )
 
