@@ -8,7 +8,14 @@ A Python kanban board for Linux with:
     - Control over how tasks are prompted to Codex CLI
     - An agent control button to stop and start autonomous task completion
 
-## Run
+## Run Instructions
+
+Check out this repository on your machine. Then create a second repository for your desired project:
+
+- Run `git init` so Codex CLI doesn't balk at running
+- Run Codex CLI once so you can trust the directory
+- Copy KANBAN.md from this repo to your project directory (the task agent looks for this by default)
+- Create an AGENTS.md file or have your project agent create one as your first task (the task agent looks for this by default)
 
 Navigate to project directory and start the Kanban Agent with:
 
