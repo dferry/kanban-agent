@@ -16,6 +16,7 @@ A Python kanban board for Linux with:
 - Load board state from JSON on startup
 - JSON API to create, list, and move tasks programmatically
 - Shared in-memory task store between GUI and API
+- Agent runner that can consume `To Do` tasks automatically via Codex CLI subprocesses
 
 ## Run
 
@@ -36,6 +37,18 @@ If that file exists, it is loaded on startup; when the window close button (`X`)
 When started, the API is available at:
 
 `http://127.0.0.1:8000`
+
+## Agent Control Button
+
+The top-row agent button controls autonomous task execution:
+
+- `STOPPED` (red): idle, no task consumption.
+- Click once -> `RUNNING` (green): consume `todo` tasks in order.
+  - For each task: move to `in_progress`, launch an independent `codex exec` subprocess with a task prompt, then move to `done` when the subprocess exits.
+- Click again -> `FINISHING` (yellow): do not start new tasks, wait for the current subprocess to finish, then transition to `STOPPED`.
+- Click while `FINISHING` -> `RUNNING`: resume continuous consumption after the current subprocess completes.
+
+The default task prompt tells Codex this is one task in a larger project and to read `AGENTS.md`.
 
 ## API
 

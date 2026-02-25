@@ -5,6 +5,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+from kanban.agent import AgentController
 from kanban.model import KanbanBoard, TaskStatus
 
 
@@ -42,9 +43,15 @@ class KanbanGUI:
         "finishing": {"text": "FINISHING", "bg": "#EAB308", "fg": "#0F172A"},
     }
 
-    def __init__(self, board: KanbanBoard, board_file: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        board: KanbanBoard,
+        board_file: str | Path | None = None,
+        agent_controller: AgentController | None = None,
+    ) -> None:
         self.board = board
         self.board_file = Path(board_file) if board_file else None
+        self._agent_controller = agent_controller
         self.root = tk.Tk()
         self.root.title("Kanban Board")
         self.root.geometry("1040x660")
@@ -350,8 +357,11 @@ class KanbanGUI:
         return canvas
 
     def _toggle_agent_state(self) -> None:
-        current_index = self._AGENT_STATES.index(self._agent_state)
-        self._agent_state = self._AGENT_STATES[(current_index + 1) % len(self._AGENT_STATES)]
+        if self._agent_controller is not None:
+            self._agent_state = self._agent_controller.cycle_state()
+        else:
+            current_index = self._AGENT_STATES.index(self._agent_state)
+            self._agent_state = self._AGENT_STATES[(current_index + 1) % len(self._AGENT_STATES)]
         self._sync_agent_button()
 
     def _sync_agent_button(self) -> None:
@@ -398,6 +408,9 @@ class KanbanGUI:
         messagebox.showinfo("Board saved", f"Saved board to:\n{destination}")
 
     def _on_window_close(self) -> None:
+        if self._agent_controller is not None:
+            self._agent_controller.shutdown()
+
         destination = self.board_file or Path(".board.json")
         try:
             self.board.save_to_file(destination)
@@ -520,6 +533,9 @@ class KanbanGUI:
         self._active_drop_status = status
 
     def refresh(self) -> None:
+        if self._agent_controller is not None:
+            self._agent_state = self._agent_controller.state
+            self._sync_agent_button()
         self._render()
         self._refresh_job = self.root.after(800, self.refresh)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from kanban.agent import AgentController
 from kanban.api import KanbanAPIServer
 from kanban.gui import KanbanGUI
 from kanban.model import KanbanBoard
@@ -25,6 +26,10 @@ def resolve_board_file(board_file: str | None, cwd: Path | None = None) -> Path:
     return root / DEFAULT_BOARD_FILENAME
 
 
+def build_agent_controller(board: KanbanBoard) -> AgentController:
+    return AgentController(board)
+
+
 def main() -> None:
     args = parse_args()
     board_file = resolve_board_file(args.board_file)
@@ -35,13 +40,15 @@ def main() -> None:
 
     api = KanbanAPIServer(board, host=args.host, port=args.port)
     api.start()
+    agent_controller = build_agent_controller(board)
     print(f"Kanban API running on http://{args.host}:{api.port}")
     print(f"Board persistence file: {board_file}")
 
     try:
-        gui = KanbanGUI(board, board_file=board_file)
+        gui = KanbanGUI(board, board_file=board_file, agent_controller=agent_controller)
         gui.run()
     finally:
+        agent_controller.shutdown()
         board.save_to_file(board_file)
         api.stop()
 

@@ -48,6 +48,15 @@ This document describes the purpose of each project file and how components are 
     - Serialize model tasks for API clients.
   - Uses a shared `KanbanBoard` instance.
 
+- `kanban/agent.py`
+  - Background agent controller for autonomous task consumption.
+  - Responsibilities:
+    - Maintain explicit runtime state (`stopped`, `running`, `finishing`).
+    - Consume tasks from `todo` in order.
+    - Move tasks through `in_progress` to `done`.
+    - Launch one subprocess per task (default uses `codex exec` with a task-specific prompt that references `AGENTS.md`).
+  - Uses a shared `KanbanBoard` instance.
+
 - `kanban/gui.py`
   - Tkinter graphical interface.
   - Responsibilities:
@@ -55,8 +64,9 @@ This document describes the purpose of each project file and how components are 
     - Handle drag-and-drop move/reorder interactions.
     - Handle color selection modes (fixed colors, RNG, Cycle).
     - Handle scroll behavior for task columns.
+    - Expose agent control button state transitions (`STOPPED`/`RUNNING`/`FINISHING`).
     - Save board via button and on window-close (`X`) event.
-  - Uses a shared `KanbanBoard` instance and optional persistence path.
+  - Uses a shared `KanbanBoard` instance, optional persistence path, and optional `AgentController`.
 
 - `kanban/app.py`
   - Application entrypoint and composition root.
@@ -79,11 +89,15 @@ This document describes the purpose of each project file and how components are 
 
 - `tests/test_app.py`
   - Unit tests for app-level board-file resolution.
-  - Verifies default `.board.json` behavior and explicit path behavior.
+  - Verifies default `.board.json` behavior, explicit path behavior, and app-level agent controller wiring.
 
 - `tests/test_gui.py`
   - GUI-focused unit tests for isolated UI behavior.
-  - Currently covers the agent control button state cycle and styling (`STOPPED` -> `RUNNING` -> `FINISHING`).
+  - Covers the agent control button state cycle/styling and controller-driven state synchronization.
+
+- `tests/test_agent.py`
+  - Unit tests for autonomous agent runtime behavior.
+  - Covers controller state transitions, task consumption, finishing semantics, and resume behavior.
 
 ## Generated/Transient Files
 
@@ -95,6 +109,8 @@ This document describes the purpose of each project file and how components are 
 
 1. Start app via `python -m kanban.app`.
 2. `app.py` resolves board file and loads persisted state (if present).
-3. A single `KanbanBoard` instance is shared by GUI (`gui.py`) and API server (`api.py`).
-4. User and API operations mutate the same in-memory model (`model.py`).
-5. Board state is saved to JSON via GUI save action and on normal app shutdown/close.
+3. `app.py` creates one `AgentController` (`agent.py`) with the shared board.
+4. A single `KanbanBoard` instance is shared by GUI (`gui.py`), API server (`api.py`), and agent controller (`agent.py`).
+5. In `RUNNING` mode, the agent controller consumes `todo` tasks and executes one subprocess per task.
+6. User and API operations mutate the same in-memory model (`model.py`).
+7. Board state is saved to JSON via GUI save action and on normal app shutdown/close.

@@ -1,7 +1,9 @@
 import unittest
 from pathlib import Path
 
-from kanban.app import DEFAULT_BOARD_FILENAME, resolve_board_file
+from kanban.agent import AgentController
+from kanban.app import DEFAULT_BOARD_FILENAME, build_agent_controller, resolve_board_file
+from kanban.model import KanbanBoard
 
 
 class AppTests(unittest.TestCase):
@@ -18,6 +20,13 @@ class AppTests(unittest.TestCase):
         resolved = resolve_board_file("custom-board.json", cwd=cwd)
 
         self.assertEqual(resolved, Path("custom-board.json"))
+
+    def test_build_agent_controller_attaches_board(self):
+        board = KanbanBoard()
+
+        controller = build_agent_controller(board)
+
+        self.assertIsInstance(controller, AgentController)
 
 
 if __name__ == "__main__":
