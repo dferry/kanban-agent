@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from kanban.model import KanbanBoard, TaskStatus
 
@@ -65,6 +67,36 @@ class KanbanBoardTests(unittest.TestCase):
         tasks = board.list_tasks()
         in_progress_ids = [task.id for task in tasks if task.status == TaskStatus.IN_PROGRESS]
         self.assertEqual(in_progress_ids, [in_progress_a.id, todo_task.id, in_progress_b.id])
+
+    def test_save_and_load_preserves_order_status_and_color(self):
+        board = KanbanBoard()
+        first = board.create_task("First", color="#ff0000")
+        second = board.create_task("Second", color="#00ff00")
+        third = board.create_task("Third", color="#0000ff")
+        board.move_task(third.id, TaskStatus.IN_PROGRESS)
+        board.move_task(second.id, TaskStatus.IN_PROGRESS, index=0)
+        board.move_task(first.id, TaskStatus.DONE)
+
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "board.json"
+            board.save_to_file(path)
+            loaded = KanbanBoard.load_from_file(path)
+
+        loaded_tasks = loaded.list_tasks()
+        self.assertEqual(
+            [(task.title, task.status.value, task.color) for task in loaded_tasks],
+            [
+                ("Second", "in_progress", "#00ff00"),
+                ("Third", "in_progress", "#0000ff"),
+                ("First", "done", "#ff0000"),
+            ],
+        )
+
+    def test_load_from_missing_file_raises_file_not_found(self):
+        with TemporaryDirectory() as temp_dir:
+            missing = Path(temp_dir) / "missing.json"
+            with self.assertRaises(FileNotFoundError):
+                KanbanBoard.load_from_file(missing)
 
 
 if __name__ == "__main__":

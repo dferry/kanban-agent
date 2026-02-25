@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+import json
+from pathlib import Path
 import re
 from threading import RLock
 
@@ -82,6 +84,67 @@ class KanbanBoard:
             except KeyError as exc:
                 raise KeyError(f"task {task_id} not found") from exc
             return Task(id=t.id, title=t.title, status=t.status, color=t.color)
+
+    def to_dict(self) -> dict[str, object]:
+        with self._lock:
+            columns: dict[str, list[dict[str, object]]] = {}
+            for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
+                column_tasks: list[dict[str, object]] = []
+                for task_id in self._order[status]:
+                    task = self._tasks[task_id]
+                    column_tasks.append({"id": task.id, "title": task.title, "color": task.color})
+                columns[status.value] = column_tasks
+            return {"version": 1, "columns": columns}
+
+    def save_to_file(self, file_path: str | Path) -> None:
+        path = Path(file_path)
+        payload = self.to_dict()
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> KanbanBoard:
+        if not isinstance(payload, dict):
+            raise ValueError("board payload must be an object")
+        raw_columns = payload.get("columns")
+        if not isinstance(raw_columns, dict):
+            raise ValueError("board payload must contain a columns object")
+
+        board = cls()
+        max_id = 0
+        seen_ids: set[int] = set()
+        for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
+            column = raw_columns.get(status.value)
+            if not isinstance(column, list):
+                raise ValueError(f"column {status.value} must be a list")
+            for row in column:
+                if not isinstance(row, dict):
+                    raise ValueError("task rows must be objects")
+                task_id = row.get("id")
+                title = row.get("title")
+                color = row.get("color")
+                if not isinstance(task_id, int) or task_id <= 0:
+                    raise ValueError("task id must be a positive integer")
+                if task_id in seen_ids:
+                    raise ValueError("task ids must be unique")
+                if not isinstance(title, str) or not title.strip():
+                    raise ValueError("task title must be a non-empty string")
+
+                clean_color = validate_html_color(color)
+                clean_title = title.strip()
+                task = Task(id=task_id, title=clean_title, status=status, color=clean_color)
+                board._tasks[task_id] = task
+                board._order[status].append(task_id)
+                seen_ids.add(task_id)
+                max_id = max(max_id, task_id)
+
+        board._next_id = max_id + 1
+        return board
+
+    @classmethod
+    def load_from_file(cls, file_path: str | Path) -> KanbanBoard:
+        path = Path(file_path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return cls.from_dict(payload)
 
 
 def validate_html_color(raw_color: str) -> str:

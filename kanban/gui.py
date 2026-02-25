@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import random
 import tkinter as tk
-from tkinter import messagebox
+from pathlib import Path
+from tkinter import filedialog, messagebox
 
 from kanban.model import KanbanBoard, TaskStatus
 
@@ -35,8 +36,9 @@ class KanbanGUI:
     _CARD_BORDER_ACTIVE = "#0F172A"
     _LIST_BG = "#FBFCFF"
 
-    def __init__(self, board: KanbanBoard) -> None:
+    def __init__(self, board: KanbanBoard, board_file: str | Path | None = None) -> None:
         self.board = board
+        self.board_file = Path(board_file) if board_file else None
         self.root = tk.Tk()
         self.root.title("Kanban Board")
         self.root.geometry("1040x660")
@@ -66,6 +68,7 @@ class KanbanGUI:
         self._refresh_job: str | None = None
 
         self._build_layout()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
         self.root.bind_all("<B1-Motion>", self._on_global_drag_motion)
         self.root.bind_all("<ButtonRelease-1>", self._on_drag_release)
         self.root.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -130,6 +133,22 @@ class KanbanGUI:
             cursor="hand2",
         )
         add_button.pack(side=tk.LEFT, padx=(10, 0))
+
+        save_button = tk.Button(
+            create_row,
+            text="Save Board",
+            command=self.save_board,
+            bg="#0F172A",
+            fg="#FFFFFF",
+            activebackground="#1E293B",
+            activeforeground="#FFFFFF",
+            relief=tk.FLAT,
+            padx=14,
+            pady=7,
+            font=("Helvetica", 10, "bold"),
+            cursor="hand2",
+        )
+        save_button.pack(side=tk.LEFT, padx=(8, 0))
 
         color_row = tk.Frame(top, bg=self._CANVAS_BG)
         color_row.grid(row=3, column=0, sticky="w", pady=(10, 0))
@@ -314,6 +333,35 @@ class KanbanGUI:
         self.board.create_task(title, color=self._color_for_new_task())
         self.new_task_var.set("")
         self._render()
+
+    def save_board(self) -> None:
+        destination = self.board_file
+        if destination is None:
+            selected = filedialog.asksaveasfilename(
+                title="Save Kanban Board",
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            )
+            if not selected:
+                return
+            destination = Path(selected)
+            self.board_file = destination
+
+        try:
+            self.board.save_to_file(destination)
+        except OSError as exc:
+            messagebox.showerror("Save failed", f"Could not save board:\n{exc}")
+            return
+        messagebox.showinfo("Board saved", f"Saved board to:\n{destination}")
+
+    def _on_window_close(self) -> None:
+        destination = self.board_file or Path(".board.json")
+        try:
+            self.board.save_to_file(destination)
+        except OSError as exc:
+            messagebox.showerror("Save failed", f"Could not save board:\n{exc}")
+            return
+        self.root.destroy()
 
     def _on_task_press(self, event: tk.Event, status: TaskStatus, task_id: int) -> None:
         if task_id not in self._id_maps[status]:

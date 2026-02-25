@@ -12,6 +12,8 @@ A Python kanban board for Linux with:
 - Move tasks by clicking and dragging between columns
 - Reorder tasks within a column via drag and drop
 - Vertical scrollbar in each column for long task lists
+- Save board state to JSON (tasks, order within each column, and colors)
+- Load board state from JSON on startup
 - JSON API to create, list, and move tasks programmatically
 - Shared in-memory task store between GUI and API
 
@@ -20,6 +22,16 @@ A Python kanban board for Linux with:
 ```bash
 python -m kanban.app --host 127.0.0.1 --port 8000
 ```
+
+To load existing board data on startup and autosave on exit:
+
+```bash
+python -m kanban.app --host 127.0.0.1 --port 8000 --board-file ./board.json
+```
+
+In the GUI, click `Save Board` to write the current board to a JSON file at any time.
+If `--board-file` is not provided, the app automatically uses `./.board.json` in the current working directory.
+If that file exists, it is loaded on startup; when the window close button (`X`) is used, the board is saved before exit.
 
 When started, the API is available at:
 

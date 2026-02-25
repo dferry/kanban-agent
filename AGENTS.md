@@ -2,6 +2,11 @@
 
 This file defines how a software development agent should operate in this repository.
 
+## Read First
+Before making changes, read these project documents:
+- `ARCHITECTURE.md` to understand file layout, component boundaries, and runtime flow.
+- `API.md` to understand the HTTP contract and preserve API compatibility.
+
 ## Mission
 Build high-quality, readable, and maintainable software with predictable behavior and low regression risk.
 

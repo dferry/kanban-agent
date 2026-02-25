@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "columns": {
+    "todo": [
+      {
+        "id": 1,
+        "title": "one",
+        "color": "#a98b75"
+      },
+      {
+        "id": 3,
+        "title": "three",
+        "color": "#ad2f29"
+      },
+      {
+        "id": 5,
+        "title": "five",
+        "color": "#a006c3"
+      },
+      {
+        "id": 10,
+        "title": "ten",
+        "color": "#fd823c"
+      }
+    ],
+    "in_progress": [
+      {
+        "id": 6,
+        "title": "six",
+        "color": "#9f5d6d"
+      },
+      {
+        "id": 4,
+        "title": "four",
+        "color": "#a568bf"
+      },
+      {
+        "id": 2,
+        "title": "two",
+        "color": "#dbcee4"
+      }
+    ],
+    "done": [
+      {
+        "id": 7,
+        "title": "seven",
+        "color": "#4afa06"
+      },
+      {
+        "id": 8,
+        "title": "eight",
+        "color": "#c71048"
+      },
+      {
+        "id": 9,
+        "title": "nine",
+        "color": "#1c419f"
+      }
+    ]
+  }
+}
