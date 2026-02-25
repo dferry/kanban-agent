@@ -81,6 +81,10 @@ This document describes the purpose of each project file and how components are 
   - Unit tests for app-level board-file resolution.
   - Verifies default `.board.json` behavior and explicit path behavior.
 
+- `tests/test_gui.py`
+  - GUI-focused unit tests for isolated UI behavior.
+  - Currently covers the agent control button state cycle and styling (`STOPPED` -> `RUNNING` -> `FINISHING`).
+
 ## Generated/Transient Files
 
 - `kanban/__pycache__/...`, `tests/__pycache__/...`

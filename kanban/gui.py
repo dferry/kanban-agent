@@ -35,6 +35,12 @@ class KanbanGUI:
     _CARD_BORDER = "#D7DEE9"
     _CARD_BORDER_ACTIVE = "#0F172A"
     _LIST_BG = "#FBFCFF"
+    _AGENT_STATES = ("stopped", "running", "finishing")
+    _AGENT_BUTTON_STYLE = {
+        "stopped": {"text": "STOPPED", "bg": "#DC2626", "fg": "#FFFFFF"},
+        "running": {"text": "RUNNING", "bg": "#16A34A", "fg": "#FFFFFF"},
+        "finishing": {"text": "FINISHING", "bg": "#EAB308", "fg": "#0F172A"},
+    }
 
     def __init__(self, board: KanbanBoard, board_file: str | Path | None = None) -> None:
         self.board = board
@@ -66,6 +72,8 @@ class KanbanGUI:
         self._drag_source_index: int | None = None
         self._active_drop_status: TaskStatus | None = None
         self._refresh_job: str | None = None
+        self._agent_state = "stopped"
+        self._agent_button: tk.Button | None = None
 
         self._build_layout()
         self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
@@ -149,6 +157,23 @@ class KanbanGUI:
             cursor="hand2",
         )
         save_button.pack(side=tk.LEFT, padx=(8, 0))
+
+        self._agent_button = tk.Button(
+            create_row,
+            text="STOPPED",
+            command=self._toggle_agent_state,
+            bg="#DC2626",
+            fg="#FFFFFF",
+            activebackground="#DC2626",
+            activeforeground="#FFFFFF",
+            relief=tk.FLAT,
+            padx=14,
+            pady=7,
+            font=("Helvetica", 10, "bold"),
+            cursor="hand2",
+        )
+        self._agent_button.pack(side=tk.LEFT, padx=(8, 0))
+        self._sync_agent_button()
 
         color_row = tk.Frame(top, bg=self._CANVAS_BG)
         color_row.grid(row=3, column=0, sticky="w", pady=(10, 0))
@@ -323,6 +348,24 @@ class KanbanGUI:
         canvas.create_text(39, 14, text="Cycle", fill="#0B1020", font=("Helvetica", 9, "bold"))
         canvas.bind("<Button-1>", lambda _event: self._set_new_task_color("cycle"))
         return canvas
+
+    def _toggle_agent_state(self) -> None:
+        current_index = self._AGENT_STATES.index(self._agent_state)
+        self._agent_state = self._AGENT_STATES[(current_index + 1) % len(self._AGENT_STATES)]
+        self._sync_agent_button()
+
+    def _sync_agent_button(self) -> None:
+        if self._agent_button is None:
+            return
+
+        style = self._AGENT_BUTTON_STYLE[self._agent_state]
+        self._agent_button.configure(
+            text=style["text"],
+            bg=style["bg"],
+            fg=style["fg"],
+            activebackground=style["bg"],
+            activeforeground=style["fg"],
+        )
 
     def add_task(self) -> None:
         title = self.new_task_var.get().strip()
