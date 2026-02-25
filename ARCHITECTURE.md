@@ -65,6 +65,8 @@ This document describes the purpose of each project file and how components are 
     - Handle color selection modes (fixed colors, RNG, Cycle).
     - Handle scroll behavior for task columns.
     - Expose agent control button state transitions (`STOPPED`/`RUNNING`/`FINISHING`).
+    - Expose editable agent execution templates (command + prompt with `TASK_TEXT` token substitution).
+    - Display last agent invocation command/prompt in the bottom execution panel.
     - Save board via button and on window-close (`X`) event.
   - Uses a shared `KanbanBoard` instance, optional persistence path, and optional `AgentController`.
 
