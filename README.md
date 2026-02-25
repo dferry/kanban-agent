@@ -1,22 +1,12 @@
 # Kanban Agent
 
 A Python kanban board for Linux with:
-- Tkinter GUI (mouse drag and drop between columns)
-- Built-in JSON API server for creating and moving tasks
-
-## Features
-- Three workflow columns: `To Do`, `In Progress`, `Done`
-- Create tasks from the GUI
-- Set new-task color from buttons: red, green, blue, purple, cyan, magenta, or RNG
-- Render each task as a colored rectangle in the board
-- Move tasks by clicking and dragging between columns
-- Reorder tasks within a column via drag and drop
-- Vertical scrollbar in each column for long task lists
-- Save board state to JSON (tasks, order within each column, and colors)
-- Load board state from JSON on startup
-- JSON API to create, list, and move tasks programmatically
-- Shared in-memory task store between GUI and API
-- Agent runner that can consume `To Do` tasks automatically via Codex CLI subprocesses
+- Automatic execution of tasks with Codex CLI
+- Built-in JSON API server so agents can create new tasks autonomously
+- Tkinter GUI for user to manually create tasks and move them between columns
+    - Colors!
+    - Control over how tasks are prompted to Codex CLI
+    - An agent control button to stop and start autonomous task completion
 
 ## Run
 
