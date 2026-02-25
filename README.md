@@ -20,21 +20,26 @@ A Python kanban board for Linux with:
 
 ## Run
 
+Navigate to project directory and start the Kanban Agent with:
+
+
 ```bash
-python -m kanban.app --host 127.0.0.1 --port 8000
+PYTHONPATH=/path/to/this/repo python -m kanban.app --host 127.0.0.1 --port 8000
 ```
 
-To load existing board data on startup and autosave on exit:
+By default, your board is automatically saved when closing program with X button and loaded when starting the agent. The board is stored as a hidden file as .board.json
+
+You can specify an explicit board file with the argument:
 
 ```bash
-python -m kanban.app --host 127.0.0.1 --port 8000 --board-file ./board.json
+--board-file ./board.json
 ```
 
 In the GUI, click `Save Board` to write the current board to a JSON file at any time.
 If `--board-file` is not provided, the app automatically uses `./.board.json` in the current working directory.
 If that file exists, it is loaded on startup; when the window close button (`X`) is used, the board is saved before exit.
 
-When started, the API is available at:
+When started, the API is available by default at:
 
 `http://127.0.0.1:8000`
 
@@ -43,10 +48,10 @@ When started, the API is available at:
 The top-row agent button controls autonomous task execution:
 
 - `STOPPED` (red): idle, no task consumption.
-- Click once -> `RUNNING` (green): consume `todo` tasks in order.
-  - For each task: move to `in_progress`, launch an independent `codex exec` subprocess with a task prompt, then move to `done` when the subprocess exits.
-- Click again -> `FINISHING` (yellow): do not start new tasks, wait for the current subprocess to finish, then transition to `STOPPED`.
-- Click while `FINISHING` -> `RUNNING`: resume continuous consumption after the current subprocess completes.
+- Click once `STOPPED` (red) -> `RUNNING` (green) to consume `To Do` tasks in order.
+  - For each task: move to `In Progress`, launch an independent `codex exec` subprocess with a task prompt, then move to `Finished` when the subprocess exits.
+- Click again `RUNNING` (green) -> `FINISHING` (yellow): do not start new tasks, wait for the current subprocess to finish, then transition to `STOPPED`.
+- Click `FINISHING` (yellow) -> `RUNNING` (green) to resume continuous mode without stopping.
 
 The default task prompt tells Codex this is one task in a larger project and to read `AGENTS.md`.
 
