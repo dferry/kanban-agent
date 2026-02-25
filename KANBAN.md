@@ -1,6 +1,6 @@
 # Kanban Integration Guide
 
-This project provides a shared Kanban board that agents can use for planning and execution across repositories.
+This project provides a shared Kanban board that a user and agent can use for task planning and execution.
 
 ## How To Use This Board
 
