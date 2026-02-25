@@ -1,6 +1,7 @@
 import unittest
 
 from kanban.agent import AgentInvocation
+from kanban.model import TaskStatus
 from kanban.gui import KanbanGUI
 
 
@@ -48,6 +49,19 @@ class _FakeLabel:
 
     def configure(self, **kwargs: str) -> None:
         self.text = kwargs.get("text", self.text)
+
+
+class _FakeCanvas:
+    def __init__(self, start: float = 0.0, end: float = 1.0) -> None:
+        self.start = start
+        self.end = end
+        self.moved_to: list[float] = []
+
+    def yview(self) -> tuple[float, float]:
+        return (self.start, self.end)
+
+    def yview_moveto(self, fraction: float) -> None:
+        self.moved_to.append(fraction)
 
 
 class KanbanGUITests(unittest.TestCase):
@@ -119,6 +133,71 @@ class KanbanGUITests(unittest.TestCase):
 
         self.assertEqual(gui._last_exec_command_label.text, "codex exec")
         self.assertEqual(gui._last_exec_prompt_label.text, "Implement API task")
+
+    def test_estimate_task_card_height_keeps_minimum_for_short_title(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+
+        height = gui._estimate_task_card_height("Short title", text_width_px=320)
+
+        self.assertEqual(height, 58)
+
+    def test_estimate_task_card_height_grows_for_long_title(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        long_title = "Implement drag and drop behavior across columns with state sync and API updates"
+
+        height = gui._estimate_task_card_height(long_title, text_width_px=120)
+
+        self.assertGreaterEqual(height, 120)
+
+    def test_estimate_task_card_height_handles_explicit_newlines(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+
+        one_line = gui._estimate_task_card_height("Line one", text_width_px=220)
+        three_lines = gui._estimate_task_card_height("Line one\nLine two\nLine three", text_width_px=220)
+
+        self.assertGreater(three_lines, one_line)
+
+    def test_capture_scroll_positions_uses_canvas_view_start(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui._column_canvases = {
+            TaskStatus.TODO: _FakeCanvas(start=0.25, end=0.55),
+            TaskStatus.IN_PROGRESS: _FakeCanvas(start=0.4, end=0.8),
+            TaskStatus.DONE: _FakeCanvas(start=0.0, end=0.3),
+        }
+
+        positions = gui._capture_scroll_positions()
+
+        self.assertEqual(
+            positions,
+            {
+                TaskStatus.TODO: 0.25,
+                TaskStatus.IN_PROGRESS: 0.4,
+                TaskStatus.DONE: 0.0,
+            },
+        )
+
+    def test_restore_scroll_positions_clamps_and_applies(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        todo = _FakeCanvas()
+        in_progress = _FakeCanvas()
+        done = _FakeCanvas()
+        gui._column_canvases = {
+            TaskStatus.TODO: todo,
+            TaskStatus.IN_PROGRESS: in_progress,
+            TaskStatus.DONE: done,
+        }
+
+        gui._restore_scroll_positions(
+            {
+                TaskStatus.TODO: -0.4,
+                TaskStatus.IN_PROGRESS: 0.7,
+                TaskStatus.DONE: 1.4,
+            }
+        )
+
+        self.assertEqual(todo.moved_to, [0.0])
+        self.assertEqual(in_progress.moved_to, [0.7])
+        self.assertEqual(done.moved_to, [1.0])
 
 
 if __name__ == "__main__":

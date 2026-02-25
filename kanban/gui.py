@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import tkinter as tk
+import textwrap
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
@@ -79,6 +80,7 @@ class KanbanGUI:
         self._drag_source_index: int | None = None
         self._active_drop_status: TaskStatus | None = None
         self._refresh_job: str | None = None
+        self._last_board_fingerprint: tuple[tuple[int, str, str, str], ...] | None = None
         self._agent_state = "stopped"
         self._agent_button: tk.Button | None = None
         self._agent_command_var: tk.StringVar | None = None
@@ -522,7 +524,7 @@ class KanbanGUI:
 
         self.board.create_task(title, color=self._color_for_new_task())
         self.new_task_var.set("")
-        self._render()
+        self._render(force=True)
 
     def save_board(self) -> None:
         destination = self.board_file
@@ -602,7 +604,7 @@ class KanbanGUI:
             target_index -= 1
 
         self.board.move_task(task_id, target_status, index=target_index)
-        self._render()
+        self._render(force=True)
 
     def _on_mousewheel(self, event: tk.Event) -> str | None:
         status = self._status_for_widget(event.widget if isinstance(event.widget, tk.Misc) else None)
@@ -677,16 +679,38 @@ class KanbanGUI:
         self._render()
         self._refresh_job = self.root.after(800, self.refresh)
 
-    def _render(self) -> None:
+    def _capture_scroll_positions(self) -> dict[TaskStatus, float]:
+        positions: dict[TaskStatus, float] = {}
+        for status, canvas in self._column_canvases.items():
+            start, _end = canvas.yview()
+            positions[status] = start
+        return positions
+
+    def _restore_scroll_positions(self, positions: dict[TaskStatus, float]) -> None:
+        for status, saved in positions.items():
+            canvas = self._column_canvases.get(status)
+            if canvas is None:
+                continue
+            clamped = max(0.0, min(1.0, saved))
+            canvas.yview_moveto(clamped)
+
+    def _render(self, force: bool = False) -> None:
+        tasks = self.board.list_tasks()
+        fingerprint = tuple((task.id, task.status.value, task.title, task.color) for task in tasks)
+        if not force and fingerprint == self._last_board_fingerprint:
+            return
+        self._last_board_fingerprint = fingerprint
+
         tasks_by_status: dict[TaskStatus, list[tuple[int, str, str]]] = {
             TaskStatus.TODO: [],
             TaskStatus.IN_PROGRESS: [],
             TaskStatus.DONE: [],
         }
 
-        for task in self.board.list_tasks():
+        for task in tasks:
             tasks_by_status[task.status].append((task.id, task.title, task.color))
 
+        scroll_positions = self._capture_scroll_positions()
         self._task_widgets = {}
         self._task_widget_status = {}
 
@@ -706,13 +730,18 @@ class KanbanGUI:
 
             self._count_labels[status].configure(text=str(len(tasks_by_status[status])))
             self._on_content_configure(status)
+        self._restore_scroll_positions(scroll_positions)
 
     def _build_task_card(self, parent: tk.Frame, title: str, color: str) -> tk.Canvas:
         card = tk.Canvas(parent, height=58, bg=self._LIST_BG, highlightthickness=0, bd=0)
 
         def redraw(event: tk.Event) -> None:
             width = max(event.width - 2, 120)
-            height = max(event.height - 2, 48)
+            text_width = max(width - 30, 70)
+            card_height = self._estimate_task_card_height(title, text_width_px=text_width)
+            if int(card.cget("height")) != card_height:
+                card.configure(height=card_height)
+            height = max(card_height - 2, 48)
             card.delete("all")
 
             # Shadow
@@ -741,15 +770,31 @@ class KanbanGUI:
             )
             card.create_text(
                 18,
-                height / 2,
-                anchor="w",
+                11,
+                anchor="nw",
                 text=title,
                 font=("Helvetica", 11, "bold"),
                 fill=self._text_color_for_background(color),
+                width=text_width,
+                justify=tk.LEFT,
             )
 
         card.bind("<Configure>", redraw)
         return card
+
+    def _estimate_task_card_height(self, title: str, text_width_px: int) -> int:
+        line_height = 20
+        vertical_padding = 28
+        min_height = 58
+        approx_chars_per_line = max(6, text_width_px // 9)
+
+        line_count = 0
+        for raw_line in title.splitlines() or [""]:
+            wrapped = textwrap.wrap(raw_line, width=approx_chars_per_line) if raw_line else [""]
+            line_count += max(1, len(wrapped))
+
+        estimated = vertical_padding + (line_count * line_height)
+        return max(min_height, estimated)
 
     def _draw_rounded_rect(
         self,
