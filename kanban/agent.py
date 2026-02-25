@@ -81,6 +81,7 @@ class AgentController:
         self._condition = Condition()
         self._worker: Thread | None = None
         self._last_invocation: AgentInvocation | None = None
+        self._session_executed_task = False
 
     @property
     def state(self) -> AgentState:
@@ -101,11 +102,13 @@ class AgentController:
         with self._condition:
             if self._state == "stopped":
                 self._state = "running"
+                self._session_executed_task = False
                 self._ensure_worker_locked()
             elif self._state == "running":
                 self._state = "finishing"
             else:
                 self._state = "running"
+                self._session_executed_task = False
                 self._ensure_worker_locked()
 
             self._condition.notify_all()
@@ -144,7 +147,9 @@ class AgentController:
             task = self._next_todo_task()
             if task is None:
                 with self._condition:
-                    if self._state == "running":
+                    if self._state == "running" and self._session_executed_task:
+                        self._state = "stopped"
+                    elif self._state == "running":
                         self._condition.wait(timeout=self._poll_interval)
                 continue
 
@@ -154,6 +159,8 @@ class AgentController:
                 continue
 
             self._execute_task(task)
+            with self._condition:
+                self._session_executed_task = True
 
             try:
                 self._board.move_task(task.id, TaskStatus.DONE)

@@ -49,9 +49,10 @@ class AgentControllerTests(unittest.TestCase):
 
         controller.cycle_state()  # stopped -> running
         _wait_for(lambda: board.get_task(task.id).status == TaskStatus.DONE)
+        _wait_for(lambda: controller.state == "stopped")
 
         self.assertEqual(executed, [task.id])
-        self.assertEqual(controller.state, "running")
+        self.assertEqual(controller.state, "stopped")
 
     def test_finishing_waits_for_current_task_then_stops(self) -> None:
         board = KanbanBoard()
@@ -103,9 +104,10 @@ class AgentControllerTests(unittest.TestCase):
 
         allow_finish.set()
         _wait_for(lambda: board.get_task(second.id).status == TaskStatus.DONE)
+        _wait_for(lambda: controller.state == "stopped")
 
         self.assertEqual(executions, [first.id, second.id])
-        self.assertEqual(controller.state, "running")
+        self.assertEqual(controller.state, "stopped")
 
     def test_controller_reads_latest_execution_config_for_each_task(self) -> None:
         board = KanbanBoard()
