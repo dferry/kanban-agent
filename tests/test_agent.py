@@ -144,6 +144,30 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(calls[0], ["codex", "exec", "First Task 1"])
         self.assertEqual(calls[1], ["codex", "exec", "--model", "gpt-5", "Second Task 2"])
 
+    def test_stop_task_becoming_active_transitions_running_to_stopped(self) -> None:
+        board = KanbanBoard()
+        first = board.create_task("Task 1")
+        stop = board.create_task("STOP")
+        trailing = board.create_task("Task 3")
+        executions: list[int] = []
+
+        controller = AgentController(
+            board,
+            task_executor=lambda current: executions.append(current.id) or 0,
+            poll_interval=0.01,
+        )
+        self.addCleanup(controller.shutdown)
+
+        controller.cycle_state()  # stopped -> running
+
+        _wait_for(lambda: board.get_task(stop.id).status == TaskStatus.DONE)
+        _wait_for(lambda: controller.state == "stopped")
+
+        self.assertEqual(executions, [first.id])
+        self.assertEqual(board.get_task(first.id).status, TaskStatus.DONE)
+        self.assertEqual(board.get_task(stop.id).status, TaskStatus.DONE)
+        self.assertEqual(board.get_task(trailing.id).status, TaskStatus.TODO)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,6 +13,7 @@ TaskExecutor = Callable[[Task], int]
 ProcessRunner = Callable[[list[str]], int]
 
 TASK_TEXT_TOKEN = "TASK_TEXT"
+STOP_TASK_TITLE = "STOP"
 
 _DEFAULT_POLL_INTERVAL = 0.2
 
@@ -158,6 +159,17 @@ class AgentController:
             except KeyError:
                 continue
 
+            if self._is_stop_task(task):
+                try:
+                    self._board.move_task(task.id, TaskStatus.DONE)
+                except KeyError:
+                    pass
+                with self._condition:
+                    if self._state == "running":
+                        self._state = "stopped"
+                        self._session_executed_task = True
+                continue
+
             self._execute_task(task)
             with self._condition:
                 self._session_executed_task = True
@@ -198,3 +210,6 @@ class AgentController:
         with self._condition:
             self._last_invocation = AgentInvocation(task_id=task.id, command=command, prompt=prompt, argv=full_argv)
         return self._process_runner(full_argv)
+
+    def _is_stop_task(self, task: Task) -> bool:
+        return task.title.strip().upper() == STOP_TASK_TITLE

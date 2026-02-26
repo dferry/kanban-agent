@@ -3,12 +3,6 @@
   "columns": {
     "todo": [
       {
-        "id": 20,
-        "title": "GUI: Edit and save persisted agent command/prompt values",
-        "color": "#065f46",
-        "notes": ""
-      },
-      {
         "id": 21,
         "title": "Agent: Capture stdout/stderr/exit code per run",
         "color": "#be123c",
@@ -213,6 +207,30 @@
         "id": 51,
         "title": "BUG: When I right click to open a task and edit it, I get the following error: _tkinter.TclError: grab failed: window not viewable",
         "color": "#c27059",
+        "notes": ""
+      },
+      {
+        "id": 20,
+        "title": "GUI: Persist the agent command and prompt template values in the .board.json file",
+        "color": "#ffffff",
+        "notes": ""
+      },
+      {
+        "id": 52,
+        "title": "UI / Agent: Add ability to create a \"stop\" task by right clicking on To Do flow between tasks. When this task becomes active, the board transitions from the RUNNING state to the STOPPED state",
+        "color": "#5fa465",
+        "notes": ""
+      },
+      {
+        "id": 56,
+        "title": "UI: When the user right-clicks to make a stop task, create a drop-down menu with one option \"Stop Running Here\"",
+        "color": "#2fc369",
+        "notes": ""
+      },
+      {
+        "id": 57,
+        "title": "STOP",
+        "color": "#0f172a",
         "notes": ""
       }
     ],

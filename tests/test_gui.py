@@ -1,8 +1,9 @@
 import unittest
 import tkinter as tk
+from unittest.mock import patch
 
 from kanban.agent import AgentInvocation
-from kanban.model import TaskStatus
+from kanban.model import KanbanBoard, TaskStatus
 from kanban.gui import KanbanGUI
 
 
@@ -185,12 +186,35 @@ class _FakeBindingCanvas:
         self.bindings[event] = callback
 
 
+class _FakeEvent:
+    def __init__(self, y_root: int = 0, x_root: int = 0) -> None:
+        self.y_root = y_root
+        self.x_root = x_root
+
+
 class _FakeRoot:
     def __init__(self) -> None:
         self.cursor_values: list[str] = []
 
     def config(self, *, cursor: str) -> None:
         self.cursor_values.append(cursor)
+
+
+class _FakeMenu:
+    def __init__(self, _root: object, *, tearoff: int) -> None:
+        self.tearoff = tearoff
+        self.commands: list[tuple[str, object]] = []
+        self.popup_calls: list[tuple[int, int]] = []
+        self.released = False
+
+    def add_command(self, *, label: str, command: object) -> None:
+        self.commands.append((label, command))
+
+    def tk_popup(self, x_root: int, y_root: int) -> None:
+        self.popup_calls.append((x_root, y_root))
+
+    def grab_release(self) -> None:
+        self.released = True
 
 
 class KanbanGUITests(unittest.TestCase):
@@ -233,6 +257,23 @@ class KanbanGUITests(unittest.TestCase):
         gui._toggle_agent_state()
         self.assertEqual(gui._agent_button["text"], "FINISHING")
         self.assertEqual(gui._agent_button["bg"], "#EAB308")
+
+    def test_initial_execution_templates_reads_persisted_board_config_without_controller(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        board = KanbanBoard()
+        board.set_agent_execution_config(
+            command="codex exec --model gpt-5",
+            prompt_template="Implement TASK_TEXT with tests",
+        )
+        gui.board = board
+        gui._agent_controller = None
+
+        templates = gui._initial_execution_templates()
+
+        self.assertEqual(
+            templates,
+            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests"),
+        )
 
     def test_push_agent_execution_config_updates_controller(self):
         gui = KanbanGUI.__new__(KanbanGUI)
@@ -442,6 +483,34 @@ class KanbanGUITests(unittest.TestCase):
         self.assertEqual(dialog.wait_visibility_calls, 1)
         self.assertEqual(dialog.after_idle_calls, 1)
         self.assertEqual(dialog.grab_set_calls, 2)
+
+    def test_todo_flow_right_click_opens_context_menu_with_stop_option(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui.root = object()  # type: ignore[assignment]
+        event = _FakeEvent(x_root=150, y_root=200)
+
+        with patch("kanban.gui.tk.Menu", _FakeMenu):
+            result = gui._on_todo_flow_right_click(event)  # type: ignore[arg-type]
+
+        self.assertEqual(result, "break")
+        self.assertEqual(gui._todo_context_menu.tearoff, 0)
+        self.assertEqual(len(gui._todo_context_menu.commands), 1)
+        self.assertEqual(gui._todo_context_menu.commands[0][0], "Stop Running Here")
+        self.assertEqual(gui._todo_context_menu.popup_calls, [(150, 200)])
+        self.assertTrue(gui._todo_context_menu.released)
+
+    def test_create_stop_task_from_menu_inserts_at_flow_index(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui.board = _FakeCreateBoard()
+        gui._drop_index_for_status = lambda status, event: 2  # type: ignore[assignment]
+        render_calls: list[bool] = []
+        gui._render = lambda force=False: render_calls.append(force)
+
+        gui._create_stop_task_at_event(_FakeEvent(y_root=200))  # type: ignore[arg-type]
+
+        self.assertEqual(gui.board.created, [("STOP", "#0f172a")])
+        self.assertEqual(gui.board.moved, [(1, TaskStatus.TODO, 2)])
+        self.assertEqual(render_calls, [True])
 
 
 if __name__ == "__main__":

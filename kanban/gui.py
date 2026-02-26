@@ -7,7 +7,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Callable
 
-from kanban.agent import AgentController, TASK_TEXT_TOKEN, default_prompt_template
+from kanban.agent import AgentController, STOP_TASK_TITLE, TASK_TEXT_TOKEN, default_prompt_template
 from kanban.model import KanbanBoard, TaskStatus
 
 
@@ -46,6 +46,7 @@ class KanbanGUI:
     _CARD_BORDER = "#D7DEE9"
     _CARD_BORDER_ACTIVE = "#0F172A"
     _LIST_BG = "#FBFCFF"
+    _STOP_TASK_COLOR = "#0f172a"
     _AGENT_STATES = ("stopped", "running", "finishing")
     _AGENT_BUTTON_STYLE = {
         "stopped": {"text": "STOPPED", "bg": "#DC2626", "fg": "#FFFFFF"},
@@ -92,6 +93,7 @@ class KanbanGUI:
         self._agent_prompt_input: tk.Text | None = None
         self._last_exec_command_label: tk.Label | None = None
         self._last_exec_prompt_label: tk.Label | None = None
+        self._todo_context_menu: tk.Menu | None = None
 
         self._build_layout()
         self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
@@ -306,6 +308,8 @@ class KanbanGUI:
             self._column_canvases[status] = canvas
             self._column_content_frames[status] = content
             self._column_window_ids[status] = window_id
+            if status == TaskStatus.TODO:
+                self._bind_todo_flow_shortcuts(canvas, content)
 
         self._build_agent_execution_panel()
 
@@ -476,7 +480,10 @@ class KanbanGUI:
 
     def _initial_execution_templates(self) -> tuple[str, str]:
         if self._agent_controller is None:
-            return "codex exec", default_prompt_template()
+            command, prompt_template = self.board.agent_execution_config_snapshot()
+            if not prompt_template:
+                prompt_template = default_prompt_template()
+            return command, prompt_template
         return self._agent_controller.execution_config_snapshot()
 
     def _on_agent_execution_config_change(self, *_args: object) -> None:
@@ -894,6 +901,26 @@ class KanbanGUI:
     def _bind_task_edit_shortcuts(self, task_canvas: tk.Canvas, task_id: int) -> None:
         task_canvas.bind("<Button-3>", lambda event, tid=task_id: self._on_task_edit_request(event, tid))
         task_canvas.bind("<Double-Button-1>", lambda event, tid=task_id: self._on_task_edit_request(event, tid))
+
+    def _bind_todo_flow_shortcuts(self, todo_canvas: tk.Canvas, todo_content: tk.Frame) -> None:
+        todo_canvas.bind("<Button-3>", self._on_todo_flow_right_click)
+        todo_content.bind("<Button-3>", self._on_todo_flow_right_click)
+
+    def _on_todo_flow_right_click(self, event: tk.Event) -> str:
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label="Stop Running Here", command=lambda: self._create_stop_task_at_event(event))
+        self._todo_context_menu = menu
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def _create_stop_task_at_event(self, event: tk.Event) -> None:
+        insert_index = self._drop_index_for_status(TaskStatus.TODO, event)
+        task = self.board.create_task(STOP_TASK_TITLE, color=self._STOP_TASK_COLOR)
+        self.board.move_task(task.id, TaskStatus.TODO, index=insert_index)
+        self._render(force=True)
 
     def _on_task_edit_request(self, event: tk.Event, task_id: int) -> str:
         _ = event
