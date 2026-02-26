@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 from threading import Condition, Lock, Thread
-from typing import Callable, Literal
+from typing import Callable, Literal, TextIO
 
 from kanban.model import KanbanBoard, Task, TaskStatus
 
@@ -80,13 +80,48 @@ class AgentExecutionConfig:
 
 def default_process_runner(argv: list[str]) -> AgentRunResult:
     try:
-        result = subprocess.run(argv, check=False, capture_output=True, text=True)
+        process = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
     except OSError as exc:
         return AgentRunResult(exit_code=1, stdout="", stderr=str(exc))
+
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+
+    def _consume_stream(stream: TextIO | None, chunks: list[str], *, echo_to_stdout: bool) -> None:
+        if stream is None:
+            return
+        for line in stream:
+            chunks.append(line)
+            if echo_to_stdout:
+                print(line, end="", flush=True)
+        stream.close()
+
+    stdout_thread = Thread(
+        target=_consume_stream,
+        args=(process.stdout, stdout_chunks),
+        kwargs={"echo_to_stdout": True},
+    )
+    stderr_thread = Thread(
+        target=_consume_stream,
+        args=(process.stderr, stderr_chunks),
+        kwargs={"echo_to_stdout": False},
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+    process.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+
     return AgentRunResult(
-        exit_code=int(result.returncode),
-        stdout=result.stdout or "",
-        stderr=result.stderr or "",
+        exit_code=int(process.returncode or 0),
+        stdout="".join(stdout_chunks),
+        stderr="".join(stderr_chunks),
     )
 
 

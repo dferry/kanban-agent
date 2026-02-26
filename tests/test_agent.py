@@ -3,6 +3,8 @@ from __future__ import annotations
 import threading
 import time
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
@@ -21,6 +23,21 @@ def _wait_for(predicate, timeout: float = 2.0) -> None:
 
 
 class AgentControllerTests(unittest.TestCase):
+    def test_default_process_runner_echoes_stdout_to_program_stdout(self) -> None:
+        captured_stdout = StringIO()
+        with redirect_stdout(captured_stdout):
+            result = default_process_runner(
+                [
+                    "python",
+                    "-c",
+                    "print('live output')",
+                ]
+            )
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout, "live output\n")
+        self.assertEqual(captured_stdout.getvalue(), "live output\n")
+
     def test_default_process_runner_captures_stdout_stderr_and_exit_code(self) -> None:
         result = default_process_runner(
             [
