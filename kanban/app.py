@@ -27,11 +27,19 @@ def resolve_board_file(board_file: str | None, cwd: Path | None = None) -> Path:
 
 
 def build_agent_controller(board: KanbanBoard, board_file: str | Path | None = None) -> AgentController:
-    command, prompt_template = board.agent_execution_config_snapshot()
+    command, prompt_template, commit_after_each_task = board.agent_execution_config_snapshot()
     if not prompt_template:
         prompt_template = default_prompt_template()
-    board.set_agent_execution_config(command=command, prompt_template=prompt_template)
-    execution_config = AgentExecutionConfig(command=command, prompt_template=prompt_template)
+    board.set_agent_execution_config(
+        command=command,
+        prompt_template=prompt_template,
+        commit_after_each_task=commit_after_each_task,
+    )
+    execution_config = AgentExecutionConfig(
+        command=command,
+        prompt_template=prompt_template,
+        commit_after_each_task=commit_after_each_task,
+    )
     return AgentController(board, execution_config=execution_config, board_file=board_file)
 
 

@@ -90,6 +90,7 @@ class KanbanGUI:
         self._agent_state = "stopped"
         self._agent_button: tk.Button | None = None
         self._agent_command_var: tk.StringVar | None = None
+        self._agent_commit_after_each_task_var: tk.BooleanVar | None = None
         self._agent_prompt_input: tk.Text | None = None
         self._last_exec_command_label: tk.Label | None = None
         self._last_exec_prompt_label: tk.Label | None = None
@@ -317,6 +318,23 @@ class KanbanGUI:
         box = tk.Frame(self.root, bg="#E2E8F0", padx=14, pady=10)
         box.pack(fill=tk.X, padx=14, pady=(0, 10))
 
+        command, prompt_template, commit_after_each_task = self._initial_execution_templates()
+        self._agent_commit_after_each_task_var = tk.BooleanVar(value=commit_after_each_task)
+
+        commit_checkbox = tk.Checkbutton(
+            box,
+            text="git commit -a after each task",
+            variable=self._agent_commit_after_each_task_var,
+            command=self._on_agent_execution_config_change,
+            bg="#E2E8F0",
+            fg="#0F172A",
+            activebackground="#E2E8F0",
+            activeforeground="#0F172A",
+            selectcolor="#FFFFFF",
+            font=("Helvetica", 9, "bold"),
+        )
+        commit_checkbox.grid(row=0, column=0, sticky="w", pady=(0, 6))
+
         title = tk.Label(
             box,
             text="Agent Execution Box",
@@ -324,7 +342,7 @@ class KanbanGUI:
             fg="#0F172A",
             font=("Helvetica", 10, "bold"),
         )
-        title.grid(row=0, column=0, sticky="w")
+        title.grid(row=1, column=0, sticky="w")
 
         help_label = tk.Label(
             box,
@@ -333,12 +351,11 @@ class KanbanGUI:
             fg="#334155",
             font=("Helvetica", 9),
         )
-        help_label.grid(row=1, column=0, sticky="w", pady=(2, 8))
+        help_label.grid(row=2, column=0, sticky="w", pady=(2, 8))
 
         command_label = tk.Label(box, text="Command:", bg="#E2E8F0", fg="#1E293B", font=("Helvetica", 9, "bold"))
-        command_label.grid(row=2, column=0, sticky="w")
+        command_label.grid(row=3, column=0, sticky="w")
 
-        command, prompt_template = self._initial_execution_templates()
         self._agent_command_var = tk.StringVar(value=command)
         self._agent_command_var.trace_add("write", self._on_agent_execution_config_change)
 
@@ -354,10 +371,10 @@ class KanbanGUI:
             highlightcolor="#2563EB",
             font=("Helvetica", 10),
         )
-        command_entry.grid(row=3, column=0, sticky="ew", pady=(4, 8), ipady=5)
+        command_entry.grid(row=4, column=0, sticky="ew", pady=(4, 8), ipady=5)
 
         prompt_label = tk.Label(box, text="Prompt Template:", bg="#E2E8F0", fg="#1E293B", font=("Helvetica", 9, "bold"))
-        prompt_label.grid(row=4, column=0, sticky="w")
+        prompt_label.grid(row=5, column=0, sticky="w")
 
         self._agent_prompt_input = tk.Text(
             box,
@@ -371,7 +388,7 @@ class KanbanGUI:
             font=("Helvetica", 10),
             wrap=tk.WORD,
         )
-        self._agent_prompt_input.grid(row=5, column=0, sticky="ew", pady=(4, 8))
+        self._agent_prompt_input.grid(row=6, column=0, sticky="ew", pady=(4, 8))
         self._agent_prompt_input.insert("1.0", prompt_template)
         self._agent_prompt_input.bind("<KeyRelease>", self._on_agent_execution_config_change)
 
@@ -382,7 +399,7 @@ class KanbanGUI:
             fg="#1E293B",
             font=("Helvetica", 9, "bold"),
         )
-        last_header.grid(row=6, column=0, sticky="w")
+        last_header.grid(row=7, column=0, sticky="w")
 
         self._last_exec_command_label = tk.Label(
             box,
@@ -393,7 +410,7 @@ class KanbanGUI:
             anchor="w",
             justify=tk.LEFT,
         )
-        self._last_exec_command_label.grid(row=7, column=0, sticky="w", pady=(2, 0))
+        self._last_exec_command_label.grid(row=8, column=0, sticky="w", pady=(2, 0))
 
         self._last_exec_prompt_label = tk.Label(
             box,
@@ -405,10 +422,10 @@ class KanbanGUI:
             justify=tk.LEFT,
             wraplength=980,
         )
-        self._last_exec_prompt_label.grid(row=8, column=0, sticky="w", pady=(2, 0))
+        self._last_exec_prompt_label.grid(row=9, column=0, sticky="w", pady=(2, 0))
 
         box.grid_columnconfigure(0, weight=1)
-        self._push_agent_execution_config(command, prompt_template)
+        self._push_agent_execution_config(command, prompt_template, commit_after_each_task)
 
     def _on_content_configure(self, status: TaskStatus) -> None:
         canvas = self._column_canvases[status]
@@ -478,12 +495,12 @@ class KanbanGUI:
             self._agent_state = self._AGENT_STATES[(current_index + 1) % len(self._AGENT_STATES)]
         self._sync_agent_button()
 
-    def _initial_execution_templates(self) -> tuple[str, str]:
+    def _initial_execution_templates(self) -> tuple[str, str, bool]:
         if self._agent_controller is None:
-            command, prompt_template = self.board.agent_execution_config_snapshot()
+            command, prompt_template, commit_after_each_task = self.board.agent_execution_config_snapshot()
             if not prompt_template:
                 prompt_template = default_prompt_template()
-            return command, prompt_template
+            return command, prompt_template, commit_after_each_task
         return self._agent_controller.execution_config_snapshot()
 
     def _on_agent_execution_config_change(self, *_args: object) -> None:
@@ -491,13 +508,24 @@ class KanbanGUI:
             return
         command = self._agent_command_var.get()
         prompt_template = self._agent_prompt_input.get("1.0", "end-1c")
-        self._push_agent_execution_config(command, prompt_template)
+        commit_after_each_task = False
+        if self._agent_commit_after_each_task_var is not None:
+            commit_after_each_task = bool(self._agent_commit_after_each_task_var.get())
+        self._push_agent_execution_config(command, prompt_template, commit_after_each_task)
 
-    def _push_agent_execution_config(self, command: str, prompt_template: str) -> None:
-        self.board.set_agent_execution_config(command=command, prompt_template=prompt_template)
+    def _push_agent_execution_config(self, command: str, prompt_template: str, commit_after_each_task: bool) -> None:
+        self.board.set_agent_execution_config(
+            command=command,
+            prompt_template=prompt_template,
+            commit_after_each_task=commit_after_each_task,
+        )
         if self._agent_controller is None:
             return
-        self._agent_controller.update_execution_config(command=command, prompt_template=prompt_template)
+        self._agent_controller.update_execution_config(
+            command=command,
+            prompt_template=prompt_template,
+            commit_after_each_task=commit_after_each_task,
+        )
 
     def _sync_execution_preview(self) -> None:
         if self._last_exec_command_label is None or self._last_exec_prompt_label is None:

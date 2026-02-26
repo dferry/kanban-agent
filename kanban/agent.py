@@ -52,22 +52,29 @@ def default_prompt_template() -> str:
 
 
 class AgentExecutionConfig:
-    def __init__(self, command: str = "codex exec", prompt_template: str | None = None) -> None:
+    def __init__(
+        self,
+        command: str = "codex exec",
+        prompt_template: str | None = None,
+        commit_after_each_task: bool = False,
+    ) -> None:
         self._lock = Lock()
         self._command = command
         self._prompt_template = prompt_template or default_prompt_template()
+        self._commit_after_each_task = commit_after_each_task
 
-    def update(self, command: str, prompt_template: str) -> None:
+    def update(self, command: str, prompt_template: str, commit_after_each_task: bool = False) -> None:
         with self._lock:
             self._command = command
             self._prompt_template = prompt_template
+            self._commit_after_each_task = commit_after_each_task
 
-    def snapshot(self) -> tuple[str, str]:
+    def snapshot(self) -> tuple[str, str, bool]:
         with self._lock:
-            return self._command, self._prompt_template
+            return self._command, self._prompt_template, self._commit_after_each_task
 
     def render_prompt(self, task_title: str) -> str:
-        _command, prompt_template = self.snapshot()
+        _command, prompt_template, _commit_after_each_task = self.snapshot()
         return prompt_template.replace(TASK_TEXT_TOKEN, task_title)
 
 
@@ -111,11 +118,20 @@ class AgentController:
         with self._condition:
             return self._state
 
-    def execution_config_snapshot(self) -> tuple[str, str]:
+    def execution_config_snapshot(self) -> tuple[str, str, bool]:
         return self._execution_config.snapshot()
 
-    def update_execution_config(self, command: str, prompt_template: str) -> None:
-        self._execution_config.update(command=command, prompt_template=prompt_template)
+    def update_execution_config(
+        self,
+        command: str,
+        prompt_template: str,
+        commit_after_each_task: bool = False,
+    ) -> None:
+        self._execution_config.update(
+            command=command,
+            prompt_template=prompt_template,
+            commit_after_each_task=commit_after_each_task,
+        )
 
     def last_invocation(self) -> AgentInvocation | None:
         with self._condition:
@@ -192,9 +208,11 @@ class AgentController:
                         self._session_executed_task = True
                 continue
 
-            command, prompt = self._task_execution_inputs(task)
+            command, prompt, commit_after_each_task = self._task_execution_inputs(task)
             task_started_at = self._record_task_start(task=task, command=command, prompt=prompt)
             run_result = self._execute_task(task, command=command, prompt=prompt)
+            if commit_after_each_task:
+                self._run_git_commit(task.title)
             self._record_task_finish(task=task, run_result=run_result, task_started_at=task_started_at)
             with self._condition:
                 self._session_executed_task = True
@@ -217,10 +235,10 @@ class AgentController:
                 return task
         return None
 
-    def _task_execution_inputs(self, task: Task) -> tuple[str, str]:
-        command, prompt_template = self._execution_config.snapshot()
+    def _task_execution_inputs(self, task: Task) -> tuple[str, str, bool]:
+        command, prompt_template, commit_after_each_task = self._execution_config.snapshot()
         prompt = prompt_template.replace(TASK_TEXT_TOKEN, task.title)
-        return command, prompt
+        return command, prompt, commit_after_each_task
 
     def _record_task_start(self, task: Task, *, command: str, prompt: str) -> datetime:
         task_started_at = datetime.now(timezone.utc)
@@ -268,7 +286,7 @@ class AgentController:
             return AgentRunResult(exit_code=int(self._task_executor(task)))
 
         if command is None or prompt is None:
-            command, prompt = self._task_execution_inputs(task)
+            command, prompt, _commit_after_each_task = self._task_execution_inputs(task)
 
         try:
             argv = shlex.split(command)
@@ -305,6 +323,9 @@ class AgentController:
         if isinstance(raw_result, AgentRunResult):
             return raw_result
         return AgentRunResult(exit_code=int(raw_result))
+
+    def _run_git_commit(self, task_title: str) -> AgentRunResult:
+        return self._normalize_run_result(self._process_runner(["git", "commit", "-a", "-m", task_title]))
 
     def _is_stop_task(self, task: Task) -> bool:
         return task.title.strip().upper() == STOP_TASK_TITLE

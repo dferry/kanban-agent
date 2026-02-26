@@ -35,11 +35,14 @@ class _FakeController:
 class _FakeConfigController(_FakeController):
     def __init__(self) -> None:
         super().__init__(["stopped"])
-        self.updated: list[tuple[str, str]] = []
+        self.updated: list[tuple[str, str, bool]] = []
         self._last_invocation: AgentInvocation | None = None
 
-    def update_execution_config(self, command: str, prompt_template: str) -> None:
-        self.updated.append((command, prompt_template))
+    def execution_config_snapshot(self) -> tuple[str, str, bool]:
+        return ("codex exec", "Prompt TASK_TEXT", False)
+
+    def update_execution_config(self, command: str, prompt_template: str, commit_after_each_task: bool) -> None:
+        self.updated.append((command, prompt_template, commit_after_each_task))
 
     def last_invocation(self) -> AgentInvocation | None:
         return self._last_invocation
@@ -47,10 +50,10 @@ class _FakeConfigController(_FakeController):
 
 class _FakeConfigBoard:
     def __init__(self) -> None:
-        self.saved: list[tuple[str, str]] = []
+        self.saved: list[tuple[str, str, bool]] = []
 
-    def set_agent_execution_config(self, *, command: str, prompt_template: str) -> None:
-        self.saved.append((command, prompt_template))
+    def set_agent_execution_config(self, *, command: str, prompt_template: str, commit_after_each_task: bool) -> None:
+        self.saved.append((command, prompt_template, commit_after_each_task))
 
 
 class _FakeLabel:
@@ -175,6 +178,14 @@ class _FakeTextInput:
         return self._value
 
 
+class _FakeBoolVar:
+    def __init__(self, value: bool) -> None:
+        self._value = value
+
+    def get(self) -> bool:
+        return self._value
+
+
 class _FakeModalDialog:
     def __init__(self) -> None:
         self.wait_visibility_calls = 0
@@ -288,7 +299,7 @@ class KanbanGUITests(unittest.TestCase):
 
         self.assertEqual(
             templates,
-            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests"),
+            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests", False),
         )
 
     def test_push_agent_execution_config_updates_controller(self):
@@ -296,15 +307,30 @@ class KanbanGUITests(unittest.TestCase):
         gui.board = _FakeConfigBoard()
         gui._agent_controller = _FakeConfigController()
 
-        gui._push_agent_execution_config("codex exec --model gpt-5", "Implement TASK_TEXT")
+        gui._push_agent_execution_config("codex exec --model gpt-5", "Implement TASK_TEXT", True)
 
         self.assertEqual(
             gui.board.saved,
-            [("codex exec --model gpt-5", "Implement TASK_TEXT")],
+            [("codex exec --model gpt-5", "Implement TASK_TEXT", True)],
         )
         self.assertEqual(
             gui._agent_controller.updated,
-            [("codex exec --model gpt-5", "Implement TASK_TEXT")],
+            [("codex exec --model gpt-5", "Implement TASK_TEXT", True)],
+        )
+
+    def test_execution_config_change_reads_checkbox_value(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui._agent_command_var = _FakeStringVar("codex exec")
+        gui._agent_prompt_input = _FakeTextInput("Implement TASK_TEXT")
+        gui._agent_commit_after_each_task_var = _FakeBoolVar(True)
+        pushed: list[tuple[str, str, bool]] = []
+        gui._push_agent_execution_config = lambda command, prompt, commit: pushed.append((command, prompt, commit))
+
+        gui._on_agent_execution_config_change()
+
+        self.assertEqual(
+            pushed,
+            [("codex exec", "Implement TASK_TEXT", True)],
         )
 
     def test_sync_execution_preview_shows_last_invocation(self):

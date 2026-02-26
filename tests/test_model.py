@@ -204,6 +204,7 @@ class KanbanBoardTests(unittest.TestCase):
         board.set_agent_execution_config(
             command="codex exec --model gpt-5",
             prompt_template="Implement TASK_TEXT with tests",
+            commit_after_each_task=True,
         )
 
         with TemporaryDirectory() as temp_dir:
@@ -213,7 +214,7 @@ class KanbanBoardTests(unittest.TestCase):
 
         self.assertEqual(
             loaded.agent_execution_config_snapshot(),
-            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests"),
+            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests", True),
         )
 
 

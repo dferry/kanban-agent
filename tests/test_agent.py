@@ -160,6 +160,34 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(calls[0], ["codex", "exec", "First Task 1"])
         self.assertEqual(calls[1], ["codex", "exec", "--model", "gpt-5", "Second Task 2"])
 
+    def test_commit_after_each_task_runs_git_commit_with_task_title(self) -> None:
+        board = KanbanBoard()
+        task = board.create_task("Ship parser")
+        calls: list[list[str]] = []
+
+        controller = AgentController(
+            board,
+            execution_config=AgentExecutionConfig(
+                command="codex exec",
+                prompt_template="Run TASK_TEXT",
+                commit_after_each_task=True,
+            ),
+            process_runner=lambda argv: calls.append(argv) or 0,
+            poll_interval=0.01,
+        )
+        self.addCleanup(controller.shutdown)
+
+        controller.cycle_state()  # stopped -> running
+        _wait_for(lambda: board.get_task(task.id).status == TaskStatus.DONE)
+
+        self.assertEqual(
+            calls,
+            [
+                ["codex", "exec", "Run Ship parser"],
+                ["git", "commit", "-a", "-m", "Ship parser"],
+            ],
+        )
+
     def test_last_invocation_captures_stdout_stderr_and_exit_code(self) -> None:
         board = KanbanBoard()
         task = board.create_task("Task 1")

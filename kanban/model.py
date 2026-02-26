@@ -52,6 +52,7 @@ class KanbanBoard:
         self._next_id = 1
         self._agent_execution_command = "codex exec"
         self._agent_execution_prompt_template = ""
+        self._agent_execution_commit_after_each_task = False
 
     def create_task(self, title: str, color: str = DEFAULT_TASK_COLOR) -> Task:
         clean_title = title.strip()
@@ -159,18 +160,31 @@ class KanbanBoard:
                 raise KeyError(f"task {task_id} not found") from exc
             return _copy_task(t)
 
-    def set_agent_execution_config(self, *, command: str, prompt_template: str) -> None:
+    def set_agent_execution_config(
+        self,
+        *,
+        command: str,
+        prompt_template: str,
+        commit_after_each_task: bool = False,
+    ) -> None:
         if not isinstance(command, str):
             raise ValueError("agent execution command must be a string")
         if not isinstance(prompt_template, str):
             raise ValueError("agent execution prompt template must be a string")
+        if not isinstance(commit_after_each_task, bool):
+            raise ValueError("agent execution commit_after_each_task must be a boolean")
         with self._lock:
             self._agent_execution_command = command
             self._agent_execution_prompt_template = prompt_template
+            self._agent_execution_commit_after_each_task = commit_after_each_task
 
-    def agent_execution_config_snapshot(self) -> tuple[str, str]:
+    def agent_execution_config_snapshot(self) -> tuple[str, str, bool]:
         with self._lock:
-            return self._agent_execution_command, self._agent_execution_prompt_template
+            return (
+                self._agent_execution_command,
+                self._agent_execution_prompt_template,
+                self._agent_execution_commit_after_each_task,
+            )
 
     def to_dict(self) -> dict[str, object]:
         with self._lock:
@@ -201,6 +215,7 @@ class KanbanBoard:
                 "agent_execution": {
                     "command": self._agent_execution_command,
                     "prompt_template": self._agent_execution_prompt_template,
+                    "commit_after_each_task": self._agent_execution_commit_after_each_task,
                 },
             }
 
@@ -224,11 +239,18 @@ class KanbanBoard:
                 raise ValueError("agent_execution must be an object")
             command = raw_agent_execution.get("command")
             prompt_template = raw_agent_execution.get("prompt_template")
+            commit_after_each_task = raw_agent_execution.get("commit_after_each_task", False)
             if not isinstance(command, str):
                 raise ValueError("agent_execution.command must be a string")
             if not isinstance(prompt_template, str):
                 raise ValueError("agent_execution.prompt_template must be a string")
-            board.set_agent_execution_config(command=command, prompt_template=prompt_template)
+            if not isinstance(commit_after_each_task, bool):
+                raise ValueError("agent_execution.commit_after_each_task must be a boolean")
+            board.set_agent_execution_config(
+                command=command,
+                prompt_template=prompt_template,
+                commit_after_each_task=commit_after_each_task,
+            )
 
         max_id = 0
         seen_ids: set[int] = set()

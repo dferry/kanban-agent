@@ -33,13 +33,14 @@ class AppTests(unittest.TestCase):
         board.set_agent_execution_config(
             command="codex exec --skip-git-repo-check",
             prompt_template="Ship TASK_TEXT safely",
+            commit_after_each_task=True,
         )
 
         controller = build_agent_controller(board)
 
         self.assertEqual(
             controller.execution_config_snapshot(),
-            ("codex exec --skip-git-repo-check", "Ship TASK_TEXT safely"),
+            ("codex exec --skip-git-repo-check", "Ship TASK_TEXT safely", True),
         )
 
 
