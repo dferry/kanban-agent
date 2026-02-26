@@ -64,6 +64,67 @@ class _FakeCanvas:
         self.moved_to.append(fraction)
 
 
+class _FakeCardCanvas:
+    def __init__(self, actual_width: int, configured_width: int) -> None:
+        self._actual_width = actual_width
+        self._configured_width = configured_width
+
+    def winfo_width(self) -> int:
+        return self._actual_width
+
+    def cget(self, key: str) -> int:
+        if key != "width":
+            raise KeyError(key)
+        return self._configured_width
+
+
+class _FakeWidget:
+    def __init__(self, master: object | None = None) -> None:
+        self.master = master
+
+
+class _FakeBoard:
+    def __init__(self) -> None:
+        self.deleted: list[int] = []
+
+    def delete_task(self, task_id: int) -> None:
+        self.deleted.append(task_id)
+
+
+class _FakeTask:
+    def __init__(self, task_id: int) -> None:
+        self.id = task_id
+
+
+class _FakeCreateBoard:
+    def __init__(self) -> None:
+        self.created: list[tuple[str, str]] = []
+        self.moved: list[tuple[int, TaskStatus, int | None]] = []
+        self._next_id = 1
+
+    def create_task(self, title: str, color: str) -> _FakeTask:
+        self.created.append((title, color))
+        task = _FakeTask(self._next_id)
+        self._next_id += 1
+        return task
+
+    def move_task(self, task_id: int, status: TaskStatus, index: int | None = None) -> None:
+        self.moved.append((task_id, status, index))
+
+
+class _FakeStringVar:
+    def __init__(self, value: str) -> None:
+        self._value = value
+        self.set_calls: list[str] = []
+
+    def get(self) -> str:
+        return self._value
+
+    def set(self, value: str) -> None:
+        self._value = value
+        self.set_calls.append(value)
+
+
 class KanbanGUITests(unittest.TestCase):
     def test_agent_button_defaults_to_stopped_red(self):
         gui = KanbanGUI.__new__(KanbanGUI)
@@ -198,6 +259,59 @@ class KanbanGUITests(unittest.TestCase):
         self.assertEqual(todo.moved_to, [0.0])
         self.assertEqual(in_progress.moved_to, [0.7])
         self.assertEqual(done.moved_to, [1.0])
+
+    def test_task_card_width_uses_rendered_width_before_configured_width(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        card = _FakeCardCanvas(actual_width=240, configured_width=820)
+
+        width = gui._task_card_width(card, event=None)  # type: ignore[arg-type]
+
+        self.assertEqual(width, 238)
+
+    def test_delete_task_removes_from_board_and_rerenders(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui.board = _FakeBoard()
+        render_calls: list[bool] = []
+        gui._render = lambda force=False: render_calls.append(force)
+
+        gui._delete_task(7)
+
+        self.assertEqual(gui.board.deleted, [7])
+        self.assertEqual(render_calls, [True])
+
+    def test_add_task_places_new_task_at_top_of_todo(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        gui.board = _FakeCreateBoard()
+        gui.new_task_var = _FakeStringVar("  New task  ")
+        gui._color_for_new_task = lambda: "#112233"
+        render_calls: list[bool] = []
+        gui._render = lambda force=False: render_calls.append(force)
+
+        gui.add_task()
+
+        self.assertEqual(gui.board.created, [("New task", "#112233")])
+        self.assertEqual(gui.board.moved, [(1, TaskStatus.TODO, 0)])
+        self.assertEqual(gui.new_task_var.set_calls, [""])
+        self.assertEqual(render_calls, [True])
+
+    def test_status_for_widget_maps_ignore_column_container(self):
+        gui = KanbanGUI.__new__(KanbanGUI)
+        ignore_container = _FakeWidget()
+        gui._task_widget_status = {}
+        gui._column_frames = {
+            TaskStatus.TODO: _FakeWidget(),
+            TaskStatus.IN_PROGRESS: _FakeWidget(),
+            TaskStatus.DONE: _FakeWidget(),
+            TaskStatus.IGNORE: ignore_container,
+        }
+        gui._column_canvases = {}
+        gui._column_content_frames = {}
+
+        inner_widget = _FakeWidget(master=ignore_container)
+
+        status = gui._status_for_widget(inner_widget)  # type: ignore[arg-type]
+
+        self.assertEqual(status, TaskStatus.IGNORE)
 
 
 if __name__ == "__main__":

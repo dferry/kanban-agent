@@ -3,58 +3,188 @@
   "columns": {
     "todo": [
       {
-        "id": 1,
-        "title": "one",
-        "color": "#a98b75"
+        "id": 17,
+        "title": "UX: Add task edit dialog (title, color, notes)",
+        "color": "#7c3aed"
       },
       {
-        "id": 3,
-        "title": "three",
-        "color": "#ad2f29"
+        "id": 18,
+        "title": "UX: Bind right-click/double-click edit entry points",
+        "color": "#6d28d9"
       },
       {
-        "id": 5,
-        "title": "five",
-        "color": "#a006c3"
+        "id": 19,
+        "title": "Agent: Persist exec command/prompt config in board file",
+        "color": "#047857"
       },
       {
-        "id": 10,
-        "title": "ten",
-        "color": "#fd823c"
+        "id": 20,
+        "title": "GUI: Edit and save persisted agent command/prompt values",
+        "color": "#065f46"
+      },
+      {
+        "id": 21,
+        "title": "Agent: Capture stdout/stderr/exit code per run",
+        "color": "#be123c"
+      },
+      {
+        "id": 22,
+        "title": "Model/API: Persist and expose task run history",
+        "color": "#9f1239"
+      },
+      {
+        "id": 23,
+        "title": "GUI: Open run details on double-click of Done tasks",
+        "color": "#9d174d"
+      },
+      {
+        "id": 24,
+        "title": "Agent: Add retry policy settings (manual/auto/backoff)",
+        "color": "#c2410c"
+      },
+      {
+        "id": 25,
+        "title": "Agent: Execute retries with max-attempt enforcement",
+        "color": "#9a3412"
+      },
+      {
+        "id": 26,
+        "title": "Agent: Add per-task timeout and process termination",
+        "color": "#b91c1c"
+      },
+      {
+        "id": 27,
+        "title": "UX/API: Add cancel controls for running task executions",
+        "color": "#991b1b"
+      },
+      {
+        "id": 28,
+        "title": "Agent: Add profile presets (fast/deep/review) and selection",
+        "color": "#92400e"
+      },
+      {
+        "id": 29,
+        "title": "Board: Add explicit failed status and transitions",
+        "color": "#dc2626"
+      },
+      {
+        "id": 30,
+        "title": "GUI/API: Surface failed status without log inspection",
+        "color": "#b91c1c"
+      },
+      {
+        "id": 31,
+        "title": "Model: Add created_at/started_at/finished_at task fields",
+        "color": "#0e7490"
+      },
+      {
+        "id": 32,
+        "title": "GUI: Display task timestamps in card/details views",
+        "color": "#155e75"
+      },
+      {
+        "id": 33,
+        "title": "Model: Add dependency/blocker fields and validation",
+        "color": "#166534"
+      },
+      {
+        "id": 34,
+        "title": "Agent/UI: Enforce dependency gating and blocked indicators",
+        "color": "#14532d"
+      },
+      {
+        "id": 35,
+        "title": "Agent: Add auto-stop config schema (count/failure rules)",
+        "color": "#4d7c0f"
+      },
+      {
+        "id": 36,
+        "title": "Agent: Apply auto-stop behavior in runtime loop",
+        "color": "#3f6212"
+      },
+      {
+        "id": 37,
+        "title": "API: Implement DELETE /tasks/{id} endpoint + tests",
+        "color": "#1d4ed8"
+      },
+      {
+        "id": 38,
+        "title": "API: Implement PATCH /tasks/{id} endpoint + validation",
+        "color": "#1e3a8a"
+      },
+      {
+        "id": 39,
+        "title": "API: Support Ignore status operations and status filtering",
+        "color": "#0f766e"
+      },
+      {
+        "id": 40,
+        "title": "Integrations: Add webhook/event stream for task lifecycle",
+        "color": "#7e22ce"
+      },
+      {
+        "id": 41,
+        "title": "API: Add simple auth mode for shared environments",
+        "color": "#4338ca"
+      },
+      {
+        "id": 42,
+        "title": "Agent: Create provider abstraction beyond Codex runner",
+        "color": "#0c4a6e"
+      },
+      {
+        "id": 43,
+        "title": "Integrations: Add configurable support for alternate AI platforms",
+        "color": "#082f49"
+      },
+      {
+        "id": 44,
+        "title": "Observability: Persist activity feed for transitions/invocations",
+        "color": "#334155"
+      },
+      {
+        "id": 45,
+        "title": "GUI: Add activity feed panel with recent events",
+        "color": "#1e293b"
+      },
+      {
+        "id": 46,
+        "title": "Observability: Add execution log directory with rotation/retention",
+        "color": "#374151"
+      },
+      {
+        "id": 47,
+        "title": "Safety: Add destructive action confirmations (single/bulk)",
+        "color": "#92400e"
+      },
+      {
+        "id": 48,
+        "title": "GUI: Add health indicators (agent, queue, active task, last error)",
+        "color": "#0369a1"
+      },
+      {
+        "id": 49,
+        "title": "Metrics: Track token usage per task and per run",
+        "color": "#4f46e5"
+      },
+      {
+        "id": 50,
+        "title": "Metrics: Add board-level token usage reporting (UI/API)",
+        "color": "#4338ca"
       }
     ],
-    "in_progress": [
+    "in_progress": [],
+    "done": [],
+    "ignore": [
       {
-        "id": 6,
-        "title": "six",
-        "color": "#9f5d6d"
+        "id": 15,
+        "title": "UX: Implement multi-select state for task cards",
+        "color": "#1d4ed8"
       },
       {
-        "id": 4,
-        "title": "four",
-        "color": "#a568bf"
-      },
-      {
-        "id": 2,
-        "title": "two",
-        "color": "#dbcee4"
-      }
-    ],
-    "done": [
-      {
-        "id": 7,
-        "title": "seven",
-        "color": "#4afa06"
-      },
-      {
-        "id": 8,
-        "title": "eight",
-        "color": "#c71048"
-      },
-      {
-        "id": 9,
-        "title": "nine",
-        "color": "#1c419f"
+        "id": 16,
+        "title": "UX: Add bulk move/ignore/delete actions with safeguards",
+        "color": "#1e40af"
       }
     ]
   }

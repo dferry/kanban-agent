@@ -5,6 +5,7 @@ import tkinter as tk
 import textwrap
 from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import Callable
 
 from kanban.agent import AgentController, TASK_TEXT_TOKEN, default_prompt_template
 from kanban.model import KanbanBoard, TaskStatus
@@ -15,13 +16,21 @@ class KanbanGUI:
         TaskStatus.TODO: "To Do",
         TaskStatus.IN_PROGRESS: "In Progress",
         TaskStatus.DONE: "Done",
+        TaskStatus.IGNORE: "Ignore",
     }
 
     _STATUS_COLORS = {
         TaskStatus.TODO: "#1D4ED8",
         TaskStatus.IN_PROGRESS: "#B45309",
         TaskStatus.DONE: "#047857",
+        TaskStatus.IGNORE: "#6B7280",
     }
+    _BOARD_STATUSES: tuple[TaskStatus, ...] = (
+        TaskStatus.TODO,
+        TaskStatus.IN_PROGRESS,
+        TaskStatus.DONE,
+        TaskStatus.IGNORE,
+    )
 
     _NEW_TASK_COLORS = [
         ("Red", "#ef4444"),
@@ -55,7 +64,7 @@ class KanbanGUI:
         self._agent_controller = agent_controller
         self.root = tk.Tk()
         self.root.title("Kanban Board")
-        self.root.geometry("1040x660")
+        self.root.geometry("1320x660")
         self.root.configure(bg=self._CANVAS_BG)
 
         self._column_frames: dict[TaskStatus, tk.Frame] = {}
@@ -63,11 +72,7 @@ class KanbanGUI:
         self._column_canvases: dict[TaskStatus, tk.Canvas] = {}
         self._column_content_frames: dict[TaskStatus, tk.Frame] = {}
         self._column_window_ids: dict[TaskStatus, int] = {}
-        self._id_maps: dict[TaskStatus, list[int]] = {
-            TaskStatus.TODO: [],
-            TaskStatus.IN_PROGRESS: [],
-            TaskStatus.DONE: [],
-        }
+        self._id_maps: dict[TaskStatus, list[int]] = {status: [] for status in self._BOARD_STATUSES}
 
         self._task_widgets: dict[int, tk.Canvas] = {}
         self._task_widget_status: dict[str, TaskStatus] = {}
@@ -243,7 +248,7 @@ class KanbanGUI:
         columns_frame = tk.Frame(self.root, bg=self._CANVAS_BG, padx=14, pady=10)
         columns_frame.pack(fill=tk.BOTH, expand=True)
 
-        for i, status in enumerate((TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE)):
+        for i, status in enumerate(self._BOARD_STATUSES):
             columns_frame.grid_columnconfigure(i, weight=1)
 
             container = tk.Frame(
@@ -522,7 +527,8 @@ class KanbanGUI:
             messagebox.showerror("Invalid task", "Task title cannot be empty")
             return
 
-        self.board.create_task(title, color=self._color_for_new_task())
+        task = self.board.create_task(title, color=self._color_for_new_task())
+        self.board.move_task(task.id, TaskStatus.TODO, index=0)
         self.new_task_var.set("")
         self._render(force=True)
 
@@ -557,6 +563,10 @@ class KanbanGUI:
             messagebox.showerror("Save failed", f"Could not save board:\n{exc}")
             return
         self.root.destroy()
+
+    def _delete_task(self, task_id: int) -> None:
+        self.board.delete_task(task_id)
+        self._render(force=True)
 
     def _on_task_press(self, event: tk.Event, status: TaskStatus, task_id: int) -> None:
         if task_id not in self._id_maps[status]:
@@ -637,7 +647,7 @@ class KanbanGUI:
             if current_key in self._task_widget_status:
                 return self._task_widget_status[current_key]
 
-            for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
+            for status in self._BOARD_STATUSES:
                 if current in (
                     self._column_frames.get(status),
                     self._column_canvases.get(status),
@@ -701,11 +711,7 @@ class KanbanGUI:
             return
         self._last_board_fingerprint = fingerprint
 
-        tasks_by_status: dict[TaskStatus, list[tuple[int, str, str]]] = {
-            TaskStatus.TODO: [],
-            TaskStatus.IN_PROGRESS: [],
-            TaskStatus.DONE: [],
-        }
+        tasks_by_status: dict[TaskStatus, list[tuple[int, str, str]]] = {status: [] for status in self._BOARD_STATUSES}
 
         for task in tasks:
             tasks_by_status[task.status].append((task.id, task.title, task.color))
@@ -720,7 +726,12 @@ class KanbanGUI:
 
             self._id_maps[status] = []
             for task_id, title, color in tasks_by_status[status]:
-                task_canvas = self._build_task_card(content, title=title, color=color)
+                task_canvas = self._build_task_card(
+                    content,
+                    title=title,
+                    color=color,
+                    on_delete=lambda tid=task_id: self._delete_task(tid),
+                )
                 task_canvas.pack(fill=tk.X, padx=8, pady=6)
                 task_canvas.bind("<ButtonPress-1>", lambda event, s=status, tid=task_id: self._on_task_press(event, s, tid))
 
@@ -732,11 +743,31 @@ class KanbanGUI:
             self._on_content_configure(status)
         self._restore_scroll_positions(scroll_positions)
 
-    def _build_task_card(self, parent: tk.Frame, title: str, color: str) -> tk.Canvas:
+    def _build_task_card(self, parent: tk.Frame, title: str, color: str, on_delete: Callable[[], None] | None = None) -> tk.Canvas:
         card = tk.Canvas(parent, height=58, bg=self._LIST_BG, highlightthickness=0, bd=0)
+        hovering = False
 
-        def redraw(event: tk.Event) -> None:
-            width = max(event.width - 2, 120)
+        def on_hover_enter(_event: tk.Event) -> None:
+            nonlocal hovering
+            if hovering:
+                return
+            hovering = True
+            redraw()
+
+        def on_hover_leave(_event: tk.Event) -> None:
+            nonlocal hovering
+            if not hovering:
+                return
+            hovering = False
+            redraw()
+
+        def on_delete_click(_event: tk.Event) -> str:
+            if on_delete is not None:
+                on_delete()
+            return "break"
+
+        def redraw(event: tk.Event | None = None) -> None:
+            width = self._task_card_width(card, event)
             text_width = max(width - 30, 70)
             card_height = self._estimate_task_card_height(title, text_width_px=text_width)
             if int(card.cget("height")) != card_height:
@@ -778,9 +809,54 @@ class KanbanGUI:
                 width=text_width,
                 justify=tk.LEFT,
             )
+            if hovering:
+                delete_x1 = width - 33
+                delete_y1 = 7
+                delete_x2 = width - 9
+                delete_y2 = 31
+                self._draw_rounded_rect(
+                    card,
+                    delete_x1,
+                    delete_y1,
+                    delete_x2,
+                    delete_y2,
+                    radius=10,
+                    fill="#F8FAFC",
+                    outline="#0F172A",
+                    width_px=1,
+                )
+                card.create_rectangle(
+                    delete_x1,
+                    delete_y1,
+                    delete_x2,
+                    delete_y2,
+                    fill="",
+                    outline="",
+                    tags=("delete_button",),
+                )
+                card.create_text(
+                    width - 21,
+                    19,
+                    text="x",
+                    fill="#0F172A",
+                    font=("Helvetica", 10, "bold"),
+                    tags=("delete_button",),
+                )
+                card.tag_bind("delete_button", "<ButtonPress-1>", on_delete_click)
 
         card.bind("<Configure>", redraw)
+        card.bind("<Enter>", on_hover_enter)
+        card.bind("<Leave>", on_hover_leave)
         return card
+
+    def _task_card_width(self, card: tk.Canvas, event: tk.Event | None) -> int:
+        if event is not None:
+            raw_width = int(event.width)
+        else:
+            raw_width = int(card.winfo_width())
+            if raw_width <= 1:
+                raw_width = int(card.cget("width"))
+        return max(raw_width - 2, 120)
 
     def _estimate_task_card_height(self, title: str, text_width_px: int) -> int:
         line_height = 20

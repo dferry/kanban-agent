@@ -43,6 +43,22 @@ class KanbanBoardTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             board.move_task(999, TaskStatus.DONE)
 
+    def test_delete_task_removes_it_from_board(self):
+        board = KanbanBoard()
+        keep = board.create_task("Keep")
+        remove = board.create_task("Remove")
+
+        deleted = board.delete_task(remove.id)
+
+        self.assertEqual(deleted.id, remove.id)
+        self.assertEqual([task.id for task in board.list_tasks()], [keep.id])
+
+    def test_delete_unknown_task_raises_key_error(self):
+        board = KanbanBoard()
+
+        with self.assertRaises(KeyError):
+            board.delete_task(999)
+
     def test_reorder_within_same_status(self):
         board = KanbanBoard()
         first = board.create_task("First")
@@ -97,6 +113,23 @@ class KanbanBoardTests(unittest.TestCase):
             missing = Path(temp_dir) / "missing.json"
             with self.assertRaises(FileNotFoundError):
                 KanbanBoard.load_from_file(missing)
+
+    def test_from_dict_accepts_legacy_payload_without_ignore_column(self):
+        payload = {
+            "version": 1,
+            "columns": {
+                "todo": [{"id": 1, "title": "Legacy task", "color": "#abcdef"}],
+                "in_progress": [],
+                "done": [],
+            },
+        }
+
+        board = KanbanBoard.from_dict(payload)
+
+        tasks = board.list_tasks()
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].title, "Legacy task")
+        self.assertEqual(tasks[0].status, TaskStatus.TODO)
 
 
 if __name__ == "__main__":

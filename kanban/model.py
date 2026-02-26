@@ -15,6 +15,15 @@ class TaskStatus(StrEnum):
     TODO = "todo"
     IN_PROGRESS = "in_progress"
     DONE = "done"
+    IGNORE = "ignore"
+
+
+_TASK_STATUSES: tuple[TaskStatus, ...] = (
+    TaskStatus.TODO,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.DONE,
+    TaskStatus.IGNORE,
+)
 
 
 @dataclass(slots=True)
@@ -31,11 +40,7 @@ class KanbanBoard:
     def __init__(self) -> None:
         self._lock = RLock()
         self._tasks: dict[int, Task] = {}
-        self._order: dict[TaskStatus, list[int]] = {
-            TaskStatus.TODO: [],
-            TaskStatus.IN_PROGRESS: [],
-            TaskStatus.DONE: [],
-        }
+        self._order: dict[TaskStatus, list[int]] = {status: [] for status in _TASK_STATUSES}
         self._next_id = 1
 
     def create_task(self, title: str, color: str = DEFAULT_TASK_COLOR) -> Task:
@@ -68,10 +73,20 @@ class KanbanBoard:
             task.status = status
             return task
 
+    def delete_task(self, task_id: int) -> Task:
+        with self._lock:
+            try:
+                task = self._tasks.pop(task_id)
+            except KeyError as exc:
+                raise KeyError(f"task {task_id} not found") from exc
+
+            self._order[task.status].remove(task.id)
+            return Task(id=task.id, title=task.title, status=task.status, color=task.color)
+
     def list_tasks(self) -> list[Task]:
         with self._lock:
             ordered_tasks: list[Task] = []
-            for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
+            for status in _TASK_STATUSES:
                 for task_id in self._order[status]:
                     task = self._tasks[task_id]
                     ordered_tasks.append(Task(id=task.id, title=task.title, status=task.status, color=task.color))
@@ -88,7 +103,7 @@ class KanbanBoard:
     def to_dict(self) -> dict[str, object]:
         with self._lock:
             columns: dict[str, list[dict[str, object]]] = {}
-            for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
+            for status in _TASK_STATUSES:
                 column_tasks: list[dict[str, object]] = []
                 for task_id in self._order[status]:
                     task = self._tasks[task_id]
@@ -112,8 +127,11 @@ class KanbanBoard:
         board = cls()
         max_id = 0
         seen_ids: set[int] = set()
-        for status in (TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.DONE):
-            column = raw_columns.get(status.value)
+        for status in _TASK_STATUSES:
+            if status is TaskStatus.IGNORE:
+                column = raw_columns.get(status.value, [])
+            else:
+                column = raw_columns.get(status.value)
             if not isinstance(column, list):
                 raise ValueError(f"column {status.value} must be a list")
             for row in column:
