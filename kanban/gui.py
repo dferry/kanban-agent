@@ -594,10 +594,47 @@ class KanbanGUI:
         )
         color_entry.grid(row=3, column=0, sticky="ew", pady=(4, 10), ipady=4)
 
-        tk.Label(body, text="Notes", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+        tk.Label(body, text="Command", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
             row=4, column=0, sticky="w"
         )
-        notes_input = tk.Text(
+        command_var = tk.StringVar(value=task.command)
+        command_entry = tk.Entry(
+            body,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+            textvariable=command_var,
+        )
+        command_entry.grid(row=5, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Prompt", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=6, column=0, sticky="w"
+        )
+        prompt_input = tk.Text(
+            body,
+            height=3,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+            wrap=tk.WORD,
+        )
+        prompt_input.grid(row=7, column=0, sticky="ew", pady=(4, 10))
+        prompt_input.insert("1.0", task.prompt)
+
+        tk.Label(body, text="Output", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=8, column=0, sticky="w"
+        )
+        output_input = tk.Text(
             body,
             height=6,
             relief=tk.FLAT,
@@ -610,11 +647,101 @@ class KanbanGUI:
             font=("Helvetica", 10),
             wrap=tk.WORD,
         )
-        notes_input.grid(row=5, column=0, sticky="ew", pady=(4, 10))
-        notes_input.insert("1.0", task.notes)
+        output_input.grid(row=9, column=0, sticky="ew", pady=(4, 10))
+        output_input.insert("1.0", task.output)
+
+        tk.Label(body, text="Start Time", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=10, column=0, sticky="w"
+        )
+        start_time_var = tk.StringVar(value=task.start_time)
+        start_time_entry = tk.Entry(
+            body,
+            textvariable=start_time_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        start_time_entry.grid(row=11, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="End Time", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=12, column=0, sticky="w"
+        )
+        end_time_var = tk.StringVar(value=task.end_time)
+        end_time_entry = tk.Entry(
+            body,
+            textvariable=end_time_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        end_time_entry.grid(row=13, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Duration", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=14, column=0, sticky="w"
+        )
+        duration_var = tk.StringVar(value=task.duration)
+        duration_entry = tk.Entry(
+            body,
+            textvariable=duration_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        duration_entry.grid(row=15, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Tokens Used", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=16, column=0, sticky="w"
+        )
+        tokens_used_var = tk.StringVar(value=task.tokens_used)
+        tokens_used_entry = tk.Entry(
+            body,
+            textvariable=tokens_used_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        tokens_used_entry.grid(row=17, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Exit Code", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=18, column=0, sticky="w"
+        )
+        exit_code_var = tk.StringVar(value=task.exit_code)
+        exit_code_entry = tk.Entry(
+            body,
+            textvariable=exit_code_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        exit_code_entry.grid(row=19, column=0, sticky="ew", pady=(4, 10), ipady=4)
 
         actions = tk.Frame(body, bg="#F8FAFC")
-        actions.grid(row=6, column=0, sticky="e")
+        actions.grid(row=20, column=0, sticky="e")
         tk.Button(
             actions,
             text="Cancel",
@@ -632,7 +759,20 @@ class KanbanGUI:
         tk.Button(
             actions,
             text="Save",
-            command=lambda: self._save_task_edits(task_id, dialog, title_var, color_var, notes_input),
+            command=lambda: self._save_task_edits(
+                task_id,
+                dialog,
+                title_var,
+                color_var,
+                command_var,
+                prompt_input,
+                output_input,
+                start_time_var,
+                end_time_var,
+                duration_var,
+                tokens_used_var,
+                exit_code_var,
+            ),
             relief=tk.FLAT,
             bg="#2563EB",
             fg="#FFFFFF",
@@ -669,13 +809,39 @@ class KanbanGUI:
         dialog: tk.Misc,
         title_var: tk.StringVar,
         color_var: tk.StringVar,
-        notes_input: tk.Text,
+        command_var: tk.StringVar,
+        prompt_input: tk.Text,
+        output_input: tk.Text,
+        start_time_var: tk.StringVar,
+        end_time_var: tk.StringVar,
+        duration_var: tk.StringVar,
+        tokens_used_var: tk.StringVar,
+        exit_code_var: tk.StringVar,
     ) -> None:
         title = title_var.get().strip()
         color = color_var.get().strip()
-        notes = notes_input.get("1.0", "end-1c").strip()
+        command = command_var.get().strip()
+        prompt = prompt_input.get("1.0", "end-1c").strip()
+        output = output_input.get("1.0", "end-1c").strip()
+        start_time = start_time_var.get().strip()
+        end_time = end_time_var.get().strip()
+        duration = duration_var.get().strip()
+        tokens_used = tokens_used_var.get().strip()
+        exit_code = exit_code_var.get().strip()
         try:
-            self.board.update_task(task_id, title=title, color=color, notes=notes)
+            self.board.update_task(
+                task_id,
+                title=title,
+                color=color,
+                command=command,
+                prompt=prompt,
+                output=output,
+                start_time=start_time,
+                end_time=end_time,
+                duration=duration,
+                tokens_used=tokens_used,
+                exit_code=exit_code,
+            )
         except ValueError as exc:
             messagebox.showerror("Invalid task", str(exc))
             return
@@ -860,7 +1026,23 @@ class KanbanGUI:
 
     def _render(self, force: bool = False) -> None:
         tasks = self.board.list_tasks()
-        fingerprint = tuple((task.id, task.status.value, task.title, task.color, task.notes) for task in tasks)
+        fingerprint = tuple(
+            (
+                task.id,
+                task.status.value,
+                task.title,
+                task.color,
+                task.command,
+                task.prompt,
+                task.output,
+                task.start_time,
+                task.end_time,
+                task.duration,
+                task.tokens_used,
+                task.exit_code,
+            )
+            for task in tasks
+        )
         if not force and fingerprint == self._last_board_fingerprint:
             return
         self._last_board_fingerprint = fingerprint

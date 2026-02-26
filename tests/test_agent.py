@@ -3,8 +3,11 @@ from __future__ import annotations
 import threading
 import time
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import json
 
-from kanban.agent import AgentController, AgentExecutionConfig
+from kanban.agent import AgentController, AgentExecutionConfig, AgentRunResult, default_process_runner
 from kanban.model import KanbanBoard, Task, TaskStatus
 
 
@@ -18,6 +21,19 @@ def _wait_for(predicate, timeout: float = 2.0) -> None:
 
 
 class AgentControllerTests(unittest.TestCase):
+    def test_default_process_runner_captures_stdout_stderr_and_exit_code(self) -> None:
+        result = default_process_runner(
+            [
+                "python",
+                "-c",
+                "import sys; print('hello'); print('oops', file=sys.stderr); raise SystemExit(3)",
+            ]
+        )
+
+        self.assertEqual(result.exit_code, 3)
+        self.assertEqual(result.stdout, "hello\n")
+        self.assertEqual(result.stderr, "oops\n")
+
     def test_execution_config_replaces_task_text_token(self) -> None:
         config = AgentExecutionConfig(command="codex exec", prompt_template="Implement TASK_TEXT now")
 
@@ -144,6 +160,28 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(calls[0], ["codex", "exec", "First Task 1"])
         self.assertEqual(calls[1], ["codex", "exec", "--model", "gpt-5", "Second Task 2"])
 
+    def test_last_invocation_captures_stdout_stderr_and_exit_code(self) -> None:
+        board = KanbanBoard()
+        task = board.create_task("Task 1")
+
+        controller = AgentController(
+            board,
+            execution_config=AgentExecutionConfig(command="codex exec", prompt_template="Run TASK_TEXT"),
+            process_runner=lambda _argv: AgentRunResult(exit_code=9, stdout="ok output", stderr="bad output"),
+            poll_interval=0.01,
+        )
+        self.addCleanup(controller.shutdown)
+
+        controller.cycle_state()  # stopped -> running
+        _wait_for(lambda: board.get_task(task.id).status == TaskStatus.DONE)
+
+        invocation = controller.last_invocation()
+        self.assertIsNotNone(invocation)
+        assert invocation is not None
+        self.assertEqual(invocation.exit_code, 9)
+        self.assertEqual(invocation.stdout, "ok output")
+        self.assertEqual(invocation.stderr, "bad output")
+
     def test_stop_task_becoming_active_transitions_running_to_stopped(self) -> None:
         board = KanbanBoard()
         first = board.create_task("Task 1")
@@ -167,6 +205,78 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(board.get_task(first.id).status, TaskStatus.DONE)
         self.assertEqual(board.get_task(stop.id).status, TaskStatus.DONE)
         self.assertEqual(board.get_task(trailing.id).status, TaskStatus.TODO)
+
+    def test_task_start_persists_start_time_command_and_prompt_to_board_file(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            board_file = Path(temp_dir) / ".board.json"
+            board = KanbanBoard()
+            task = board.create_task("Implement parser")
+            release_runner = threading.Event()
+            started_runner = threading.Event()
+
+            def process_runner(_argv: list[str]) -> int:
+                started_runner.set()
+                release_runner.wait(timeout=2)
+                return 0
+
+            controller = AgentController(
+                board,
+                execution_config=AgentExecutionConfig(
+                    command="codex exec --model gpt-5",
+                    prompt_template="Run TASK_TEXT now",
+                ),
+                process_runner=process_runner,
+                board_file=board_file,
+                poll_interval=0.01,
+            )
+            self.addCleanup(controller.shutdown)
+
+            controller.cycle_state()  # stopped -> running
+            self.assertTrue(started_runner.wait(timeout=1))
+
+            payload = json.loads(board_file.read_text(encoding="utf-8"))
+            persisted_task = payload["columns"]["in_progress"][0]
+            self.assertEqual(persisted_task["id"], task.id)
+            self.assertEqual(persisted_task["command"], "codex exec --model gpt-5")
+            self.assertEqual(persisted_task["prompt"], "Run Implement parser now")
+            self.assertTrue(persisted_task["start_time"])
+
+            release_runner.set()
+            _wait_for(lambda: board.get_task(task.id).status == TaskStatus.DONE)
+
+    def test_task_finish_persists_output_end_time_duration_and_exit_code_to_board_file(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            board_file = Path(temp_dir) / ".board.json"
+            board = KanbanBoard()
+            task = board.create_task("Collect output")
+
+            controller = AgentController(
+                board,
+                execution_config=AgentExecutionConfig(
+                    command="codex exec",
+                    prompt_template="Run TASK_TEXT",
+                ),
+                process_runner=lambda _argv: AgentRunResult(
+                    exit_code=7,
+                    stdout="line one\ntokens used 12,345\n",
+                    stderr="line two\n",
+                ),
+                board_file=board_file,
+                poll_interval=0.01,
+            )
+            self.addCleanup(controller.shutdown)
+
+            controller.cycle_state()  # stopped -> running
+            _wait_for(lambda: board.get_task(task.id).status == TaskStatus.DONE)
+
+            payload = json.loads(board_file.read_text(encoding="utf-8"))
+            persisted_task = payload["columns"]["done"][0]
+            self.assertEqual(persisted_task["id"], task.id)
+            self.assertEqual(persisted_task["output"], "line one\ntokens used 12,345\nline two")
+            self.assertTrue(persisted_task["end_time"])
+            self.assertTrue(persisted_task["duration"])
+            self.assertEqual(persisted_task["tokens_used"], "12,345")
+            self.assertEqual(persisted_task["exit_code"], "7")
 
 
 if __name__ == "__main__":

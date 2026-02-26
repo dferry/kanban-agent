@@ -26,13 +26,13 @@ def resolve_board_file(board_file: str | None, cwd: Path | None = None) -> Path:
     return root / DEFAULT_BOARD_FILENAME
 
 
-def build_agent_controller(board: KanbanBoard) -> AgentController:
+def build_agent_controller(board: KanbanBoard, board_file: str | Path | None = None) -> AgentController:
     command, prompt_template = board.agent_execution_config_snapshot()
     if not prompt_template:
         prompt_template = default_prompt_template()
     board.set_agent_execution_config(command=command, prompt_template=prompt_template)
     execution_config = AgentExecutionConfig(command=command, prompt_template=prompt_template)
-    return AgentController(board, execution_config=execution_config)
+    return AgentController(board, execution_config=execution_config, board_file=board_file)
 
 
 def main() -> None:
@@ -45,7 +45,7 @@ def main() -> None:
 
     api = KanbanAPIServer(board, host=args.host, port=args.port)
     api.start()
-    agent_controller = build_agent_controller(board)
+    agent_controller = build_agent_controller(board, board_file=board_file)
     print(f"Kanban API running on http://{args.host}:{api.port}")
     print(f"Board persistence file: {board_file}")
 

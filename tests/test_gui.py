@@ -124,10 +124,26 @@ class _FakeCreateBoard:
 
 class _FakeEditBoard:
     def __init__(self) -> None:
-        self.updated: list[tuple[int, str, str, str]] = []
+        self.updated: list[tuple[int, str, str, str, str, str, str, str, str, str, str]] = []
 
-    def update_task(self, task_id: int, *, title: str, color: str, notes: str):
-        self.updated.append((task_id, title, color, notes))
+    def update_task(
+        self,
+        task_id: int,
+        *,
+        title: str,
+        color: str,
+        command: str,
+        prompt: str,
+        output: str,
+        start_time: str,
+        end_time: str,
+        duration: str,
+        tokens_used: str,
+        exit_code: str,
+    ):
+        self.updated.append(
+            (task_id, title, color, command, prompt, output, start_time, end_time, duration, tokens_used, exit_code)
+        )
 
 
 class _FakeStringVar:
@@ -439,10 +455,34 @@ class KanbanGUITests(unittest.TestCase):
             dialog=dialog,
             title_var=_FakeStringVar("  Updated task  "),
             color_var=_FakeStringVar("#123abc"),
-            notes_input=_FakeTextInput("  Notes for this task  "),
+            command_var=_FakeStringVar("  codex exec  "),
+            prompt_input=_FakeTextInput("  implement this  "),
+            output_input=_FakeTextInput("  done  "),
+            start_time_var=_FakeStringVar("  2026-02-26T11:10:00Z  "),
+            end_time_var=_FakeStringVar("  2026-02-26T11:10:20Z  "),
+            duration_var=_FakeStringVar("  20s  "),
+            tokens_used_var=_FakeStringVar("  500  "),
+            exit_code_var=_FakeStringVar("  0  "),
         )
 
-        self.assertEqual(gui.board.updated, [(9, "Updated task", "#123abc", "Notes for this task")])
+        self.assertEqual(
+            gui.board.updated,
+            [
+                (
+                    9,
+                    "Updated task",
+                    "#123abc",
+                    "codex exec",
+                    "implement this",
+                    "done",
+                    "2026-02-26T11:10:00Z",
+                    "2026-02-26T11:10:20Z",
+                    "20s",
+                    "500",
+                    "0",
+                )
+            ],
+        )
         self.assertTrue(dialog.destroyed)
         self.assertEqual(render_calls, [True])
 

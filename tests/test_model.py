@@ -22,21 +22,54 @@ class KanbanBoardTests(unittest.TestCase):
         task = board.create_task("Build API", color="#00FFCC")
 
         self.assertEqual(task.color, "#00ffcc")
-        self.assertEqual(task.notes, "")
+        self.assertEqual(task.command, "")
+        self.assertEqual(task.prompt, "")
+        self.assertEqual(task.output, "")
+        self.assertEqual(task.start_time, "")
+        self.assertEqual(task.end_time, "")
+        self.assertEqual(task.duration, "")
+        self.assertEqual(task.tokens_used, "")
+        self.assertEqual(task.exit_code, "")
 
-    def test_update_task_can_change_title_color_and_notes(self):
+    def test_update_task_can_change_title_color_and_execution_fields(self):
         board = KanbanBoard()
         task = board.create_task("Initial title", color="#112233")
 
-        updated = board.update_task(task.id, title="  Updated title  ", color="#abcdef", notes="  Added notes  ")
+        updated = board.update_task(
+            task.id,
+            title="  Updated title  ",
+            color="#abcdef",
+            command="  codex exec  ",
+            prompt="  implement feature  ",
+            output="  success  ",
+            start_time="  2026-02-26T09:00:00Z  ",
+            end_time="  2026-02-26T09:01:30Z  ",
+            duration="  90s  ",
+            tokens_used="  1234  ",
+            exit_code="  0  ",
+        )
 
         self.assertEqual(updated.title, "Updated title")
         self.assertEqual(updated.color, "#abcdef")
-        self.assertEqual(updated.notes, "Added notes")
+        self.assertEqual(updated.command, "codex exec")
+        self.assertEqual(updated.prompt, "implement feature")
+        self.assertEqual(updated.output, "success")
+        self.assertEqual(updated.start_time, "2026-02-26T09:00:00Z")
+        self.assertEqual(updated.end_time, "2026-02-26T09:01:30Z")
+        self.assertEqual(updated.duration, "90s")
+        self.assertEqual(updated.tokens_used, "1234")
+        self.assertEqual(updated.exit_code, "0")
         fetched = board.get_task(task.id)
         self.assertEqual(fetched.title, "Updated title")
         self.assertEqual(fetched.color, "#abcdef")
-        self.assertEqual(fetched.notes, "Added notes")
+        self.assertEqual(fetched.command, "codex exec")
+        self.assertEqual(fetched.prompt, "implement feature")
+        self.assertEqual(fetched.output, "success")
+        self.assertEqual(fetched.start_time, "2026-02-26T09:00:00Z")
+        self.assertEqual(fetched.end_time, "2026-02-26T09:01:30Z")
+        self.assertEqual(fetched.duration, "90s")
+        self.assertEqual(fetched.tokens_used, "1234")
+        self.assertEqual(fetched.exit_code, "0")
 
     def test_create_task_rejects_invalid_color(self):
         board = KanbanBoard()
@@ -104,6 +137,17 @@ class KanbanBoardTests(unittest.TestCase):
         first = board.create_task("First", color="#ff0000")
         second = board.create_task("Second", color="#00ff00")
         third = board.create_task("Third", color="#0000ff")
+        board.update_task(
+            second.id,
+            command="codex exec",
+            prompt="Prompt text",
+            output="Output text",
+            start_time="2026-02-26T10:00:00Z",
+            end_time="2026-02-26T10:00:12Z",
+            duration="12s",
+            tokens_used="88",
+            exit_code="0",
+        )
         board.move_task(third.id, TaskStatus.IN_PROGRESS)
         board.move_task(second.id, TaskStatus.IN_PROGRESS, index=0)
         board.move_task(first.id, TaskStatus.DONE)
@@ -122,6 +166,15 @@ class KanbanBoardTests(unittest.TestCase):
                 ("First", "done", "#ff0000"),
             ],
         )
+        loaded_second = loaded.get_task(second.id)
+        self.assertEqual(loaded_second.command, "codex exec")
+        self.assertEqual(loaded_second.prompt, "Prompt text")
+        self.assertEqual(loaded_second.output, "Output text")
+        self.assertEqual(loaded_second.start_time, "2026-02-26T10:00:00Z")
+        self.assertEqual(loaded_second.end_time, "2026-02-26T10:00:12Z")
+        self.assertEqual(loaded_second.duration, "12s")
+        self.assertEqual(loaded_second.tokens_used, "88")
+        self.assertEqual(loaded_second.exit_code, "0")
 
     def test_load_from_missing_file_raises_file_not_found(self):
         with TemporaryDirectory() as temp_dir:
