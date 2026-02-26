@@ -245,6 +245,12 @@ class _FakeMenu:
 
 
 class KanbanGUITests(unittest.TestCase):
+    def test_top_hint_text_matches_agent_copy(self):
+        self.assertEqual(
+            KanbanGUI._TOP_HINT_TEXT,
+            "Pick a color, create tasks, and start an agent.",
+        )
+
     def test_agent_button_defaults_to_stopped_red(self):
         gui = KanbanGUI.__new__(KanbanGUI)
         gui._agent_button = _FakeButton()

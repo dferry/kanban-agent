@@ -53,6 +53,7 @@ class KanbanGUI:
         "running": {"text": "RUNNING", "bg": "#16A34A", "fg": "#FFFFFF"},
         "finishing": {"text": "FINISHING", "bg": "#EAB308", "fg": "#0F172A"},
     }
+    _TOP_HINT_TEXT = "Pick a color, create tasks, and start an agent."
 
     def __init__(
         self,
@@ -120,7 +121,7 @@ class KanbanGUI:
 
         hint = tk.Label(
             top,
-            text="Pick a color, create tasks, then drag them between columns.",
+            text=self._TOP_HINT_TEXT,
             bg=self._CANVAS_BG,
             fg="#475569",
             font=("Helvetica", 10),
