@@ -22,6 +22,21 @@ class KanbanBoardTests(unittest.TestCase):
         task = board.create_task("Build API", color="#00FFCC")
 
         self.assertEqual(task.color, "#00ffcc")
+        self.assertEqual(task.notes, "")
+
+    def test_update_task_can_change_title_color_and_notes(self):
+        board = KanbanBoard()
+        task = board.create_task("Initial title", color="#112233")
+
+        updated = board.update_task(task.id, title="  Updated title  ", color="#abcdef", notes="  Added notes  ")
+
+        self.assertEqual(updated.title, "Updated title")
+        self.assertEqual(updated.color, "#abcdef")
+        self.assertEqual(updated.notes, "Added notes")
+        fetched = board.get_task(task.id)
+        self.assertEqual(fetched.title, "Updated title")
+        self.assertEqual(fetched.color, "#abcdef")
+        self.assertEqual(fetched.notes, "Added notes")
 
     def test_create_task_rejects_invalid_color(self):
         board = KanbanBoard()
@@ -130,6 +145,23 @@ class KanbanBoardTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].title, "Legacy task")
         self.assertEqual(tasks[0].status, TaskStatus.TODO)
+
+    def test_save_and_load_preserves_agent_execution_config(self):
+        board = KanbanBoard()
+        board.set_agent_execution_config(
+            command="codex exec --model gpt-5",
+            prompt_template="Implement TASK_TEXT with tests",
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "board.json"
+            board.save_to_file(path)
+            loaded = KanbanBoard.load_from_file(path)
+
+        self.assertEqual(
+            loaded.agent_execution_config_snapshot(),
+            ("codex exec --model gpt-5", "Implement TASK_TEXT with tests"),
+        )
 
 
 if __name__ == "__main__":

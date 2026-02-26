@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from kanban.agent import AgentController
+from kanban.agent import AgentController, AgentExecutionConfig, default_prompt_template
 from kanban.api import KanbanAPIServer
 from kanban.gui import KanbanGUI
 from kanban.model import KanbanBoard
@@ -27,7 +27,12 @@ def resolve_board_file(board_file: str | None, cwd: Path | None = None) -> Path:
 
 
 def build_agent_controller(board: KanbanBoard) -> AgentController:
-    return AgentController(board)
+    command, prompt_template = board.agent_execution_config_snapshot()
+    if not prompt_template:
+        prompt_template = default_prompt_template()
+    board.set_agent_execution_config(command=command, prompt_template=prompt_template)
+    execution_config = AgentExecutionConfig(command=command, prompt_template=prompt_template)
+    return AgentController(board, execution_config=execution_config)
 
 
 def main() -> None:

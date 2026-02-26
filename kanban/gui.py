@@ -487,6 +487,7 @@ class KanbanGUI:
         self._push_agent_execution_config(command, prompt_template)
 
     def _push_agent_execution_config(self, command: str, prompt_template: str) -> None:
+        self.board.set_agent_execution_config(command=command, prompt_template=prompt_template)
         if self._agent_controller is None:
             return
         self._agent_controller.update_execution_config(command=command, prompt_template=prompt_template)
@@ -530,6 +531,152 @@ class KanbanGUI:
         task = self.board.create_task(title, color=self._color_for_new_task())
         self.board.move_task(task.id, TaskStatus.TODO, index=0)
         self.new_task_var.set("")
+        self._render(force=True)
+
+    def _open_task_edit_dialog(self, task_id: int) -> None:
+        try:
+            task = self.board.get_task(task_id)
+        except KeyError:
+            messagebox.showerror("Task missing", "Task no longer exists.")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Edit Task")
+        dialog.transient(self.root)
+        self._set_dialog_modal(dialog)
+        dialog.configure(bg="#F8FAFC")
+        dialog.resizable(False, False)
+
+        body = tk.Frame(dialog, bg="#F8FAFC", padx=14, pady=12)
+        body.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(body, text="Title", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
+        title_var = tk.StringVar(value=task.title)
+        title_entry = tk.Entry(
+            body,
+            textvariable=title_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+            width=44,
+        )
+        title_entry.grid(row=1, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Color", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=2, column=0, sticky="w"
+        )
+        color_var = tk.StringVar(value=task.color)
+        color_entry = tk.Entry(
+            body,
+            textvariable=color_var,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+        )
+        color_entry.grid(row=3, column=0, sticky="ew", pady=(4, 10), ipady=4)
+
+        tk.Label(body, text="Notes", bg="#F8FAFC", fg="#0F172A", font=("Helvetica", 10, "bold")).grid(
+            row=4, column=0, sticky="w"
+        )
+        notes_input = tk.Text(
+            body,
+            height=6,
+            relief=tk.FLAT,
+            bg="#FFFFFF",
+            fg="#111827",
+            insertbackground="#111827",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            font=("Helvetica", 10),
+            wrap=tk.WORD,
+        )
+        notes_input.grid(row=5, column=0, sticky="ew", pady=(4, 10))
+        notes_input.insert("1.0", task.notes)
+
+        actions = tk.Frame(body, bg="#F8FAFC")
+        actions.grid(row=6, column=0, sticky="e")
+        tk.Button(
+            actions,
+            text="Cancel",
+            command=dialog.destroy,
+            relief=tk.FLAT,
+            bg="#E2E8F0",
+            fg="#0F172A",
+            activebackground="#CBD5E1",
+            activeforeground="#0F172A",
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            font=("Helvetica", 9, "bold"),
+        ).pack(side=tk.RIGHT)
+        tk.Button(
+            actions,
+            text="Save",
+            command=lambda: self._save_task_edits(task_id, dialog, title_var, color_var, notes_input),
+            relief=tk.FLAT,
+            bg="#2563EB",
+            fg="#FFFFFF",
+            activebackground="#1D4ED8",
+            activeforeground="#FFFFFF",
+            padx=12,
+            pady=5,
+            cursor="hand2",
+            font=("Helvetica", 9, "bold"),
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        body.grid_columnconfigure(0, weight=1)
+        title_entry.focus_set()
+        title_entry.icursor(tk.END)
+
+    def _set_dialog_modal(self, dialog: tk.Misc) -> None:
+        # Toplevel may not be viewable immediately on some window managers.
+        # Wait for visibility and retry grab once on the next idle cycle.
+        dialog.wait_visibility()
+        try:
+            dialog.grab_set()
+        except tk.TclError:
+            def _retry_grab() -> None:
+                try:
+                    dialog.grab_set()
+                except tk.TclError:
+                    return
+
+            dialog.after_idle(_retry_grab)
+
+    def _save_task_edits(
+        self,
+        task_id: int,
+        dialog: tk.Misc,
+        title_var: tk.StringVar,
+        color_var: tk.StringVar,
+        notes_input: tk.Text,
+    ) -> None:
+        title = title_var.get().strip()
+        color = color_var.get().strip()
+        notes = notes_input.get("1.0", "end-1c").strip()
+        try:
+            self.board.update_task(task_id, title=title, color=color, notes=notes)
+        except ValueError as exc:
+            messagebox.showerror("Invalid task", str(exc))
+            return
+        except KeyError:
+            messagebox.showerror("Task missing", "Task no longer exists.")
+            return
+
+        dialog.destroy()
         self._render(force=True)
 
     def save_board(self) -> None:
@@ -706,7 +853,7 @@ class KanbanGUI:
 
     def _render(self, force: bool = False) -> None:
         tasks = self.board.list_tasks()
-        fingerprint = tuple((task.id, task.status.value, task.title, task.color) for task in tasks)
+        fingerprint = tuple((task.id, task.status.value, task.title, task.color, task.notes) for task in tasks)
         if not force and fingerprint == self._last_board_fingerprint:
             return
         self._last_board_fingerprint = fingerprint
@@ -734,6 +881,7 @@ class KanbanGUI:
                 )
                 task_canvas.pack(fill=tk.X, padx=8, pady=6)
                 task_canvas.bind("<ButtonPress-1>", lambda event, s=status, tid=task_id: self._on_task_press(event, s, tid))
+                self._bind_task_edit_shortcuts(task_canvas, task_id=task_id)
 
                 self._id_maps[status].append(task_id)
                 self._task_widgets[task_id] = task_canvas
@@ -742,6 +890,19 @@ class KanbanGUI:
             self._count_labels[status].configure(text=str(len(tasks_by_status[status])))
             self._on_content_configure(status)
         self._restore_scroll_positions(scroll_positions)
+
+    def _bind_task_edit_shortcuts(self, task_canvas: tk.Canvas, task_id: int) -> None:
+        task_canvas.bind("<Button-3>", lambda event, tid=task_id: self._on_task_edit_request(event, tid))
+        task_canvas.bind("<Double-Button-1>", lambda event, tid=task_id: self._on_task_edit_request(event, tid))
+
+    def _on_task_edit_request(self, event: tk.Event, task_id: int) -> str:
+        _ = event
+        self._drag_source_status = None
+        self._drag_source_index = None
+        self._set_drop_target(None)
+        self.root.config(cursor="")
+        self._open_task_edit_dialog(task_id)
+        return "break"
 
     def _build_task_card(self, parent: tk.Frame, title: str, color: str, on_delete: Callable[[], None] | None = None) -> tk.Canvas:
         card = tk.Canvas(parent, height=58, bg=self._LIST_BG, highlightthickness=0, bd=0)

@@ -56,8 +56,7 @@ At the bottom of the UI, the `Agent Execution Box` lets you edit:
 - Command (default: `codex exec`)
 - Prompt template
 
-The controller reads these values for each new task execution, so changes apply while the board is running.
-Use `TASK_TEXT` in the prompt template to inject the task title from the card being executed.
+The controller reads these values for each new task execution, so changes apply while the board is running. These values are persisted in the board JSON file and restored on next startup. Use `TASK_TEXT` in the prompt template to inject the task title from the card being executed.
 
 The same box also shows the last command/prompt values actually used for the most recent task invocation.
 

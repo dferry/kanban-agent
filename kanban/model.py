@@ -32,6 +32,7 @@ class Task:
     title: str
     status: TaskStatus
     color: str
+    notes: str = ""
 
 
 class KanbanBoard:
@@ -42,6 +43,8 @@ class KanbanBoard:
         self._tasks: dict[int, Task] = {}
         self._order: dict[TaskStatus, list[int]] = {status: [] for status in _TASK_STATUSES}
         self._next_id = 1
+        self._agent_execution_command = "codex exec"
+        self._agent_execution_prompt_template = ""
 
     def create_task(self, title: str, color: str = DEFAULT_TASK_COLOR) -> Task:
         clean_title = title.strip()
@@ -50,11 +53,41 @@ class KanbanBoard:
         clean_color = validate_html_color(color)
 
         with self._lock:
-            task = Task(id=self._next_id, title=clean_title, status=TaskStatus.TODO, color=clean_color)
+            task = Task(id=self._next_id, title=clean_title, status=TaskStatus.TODO, color=clean_color, notes="")
             self._tasks[task.id] = task
             self._order[TaskStatus.TODO].append(task.id)
             self._next_id += 1
             return task
+
+    def update_task(
+        self,
+        task_id: int,
+        *,
+        title: str | None = None,
+        color: str | None = None,
+        notes: str | None = None,
+    ) -> Task:
+        with self._lock:
+            try:
+                task = self._tasks[task_id]
+            except KeyError as exc:
+                raise KeyError(f"task {task_id} not found") from exc
+
+            if title is not None:
+                clean_title = title.strip()
+                if not clean_title:
+                    raise ValueError("title must not be empty")
+                task.title = clean_title
+
+            if color is not None:
+                task.color = validate_html_color(color)
+
+            if notes is not None:
+                if not isinstance(notes, str):
+                    raise ValueError("notes must be a string")
+                task.notes = notes.strip()
+
+            return Task(id=task.id, title=task.title, status=task.status, color=task.color, notes=task.notes)
 
     def move_task(self, task_id: int, status: TaskStatus, index: int | None = None) -> Task:
         with self._lock:
@@ -81,7 +114,7 @@ class KanbanBoard:
                 raise KeyError(f"task {task_id} not found") from exc
 
             self._order[task.status].remove(task.id)
-            return Task(id=task.id, title=task.title, status=task.status, color=task.color)
+            return Task(id=task.id, title=task.title, status=task.status, color=task.color, notes=task.notes)
 
     def list_tasks(self) -> list[Task]:
         with self._lock:
@@ -89,7 +122,9 @@ class KanbanBoard:
             for status in _TASK_STATUSES:
                 for task_id in self._order[status]:
                     task = self._tasks[task_id]
-                    ordered_tasks.append(Task(id=task.id, title=task.title, status=task.status, color=task.color))
+                    ordered_tasks.append(
+                        Task(id=task.id, title=task.title, status=task.status, color=task.color, notes=task.notes)
+                    )
             return ordered_tasks
 
     def get_task(self, task_id: int) -> Task:
@@ -98,7 +133,20 @@ class KanbanBoard:
                 t = self._tasks[task_id]
             except KeyError as exc:
                 raise KeyError(f"task {task_id} not found") from exc
-            return Task(id=t.id, title=t.title, status=t.status, color=t.color)
+            return Task(id=t.id, title=t.title, status=t.status, color=t.color, notes=t.notes)
+
+    def set_agent_execution_config(self, *, command: str, prompt_template: str) -> None:
+        if not isinstance(command, str):
+            raise ValueError("agent execution command must be a string")
+        if not isinstance(prompt_template, str):
+            raise ValueError("agent execution prompt template must be a string")
+        with self._lock:
+            self._agent_execution_command = command
+            self._agent_execution_prompt_template = prompt_template
+
+    def agent_execution_config_snapshot(self) -> tuple[str, str]:
+        with self._lock:
+            return self._agent_execution_command, self._agent_execution_prompt_template
 
     def to_dict(self) -> dict[str, object]:
         with self._lock:
@@ -107,9 +155,16 @@ class KanbanBoard:
                 column_tasks: list[dict[str, object]] = []
                 for task_id in self._order[status]:
                     task = self._tasks[task_id]
-                    column_tasks.append({"id": task.id, "title": task.title, "color": task.color})
+                    column_tasks.append({"id": task.id, "title": task.title, "color": task.color, "notes": task.notes})
                 columns[status.value] = column_tasks
-            return {"version": 1, "columns": columns}
+            return {
+                "version": 1,
+                "columns": columns,
+                "agent_execution": {
+                    "command": self._agent_execution_command,
+                    "prompt_template": self._agent_execution_prompt_template,
+                },
+            }
 
     def save_to_file(self, file_path: str | Path) -> None:
         path = Path(file_path)
@@ -125,6 +180,18 @@ class KanbanBoard:
             raise ValueError("board payload must contain a columns object")
 
         board = cls()
+        raw_agent_execution = payload.get("agent_execution")
+        if raw_agent_execution is not None:
+            if not isinstance(raw_agent_execution, dict):
+                raise ValueError("agent_execution must be an object")
+            command = raw_agent_execution.get("command")
+            prompt_template = raw_agent_execution.get("prompt_template")
+            if not isinstance(command, str):
+                raise ValueError("agent_execution.command must be a string")
+            if not isinstance(prompt_template, str):
+                raise ValueError("agent_execution.prompt_template must be a string")
+            board.set_agent_execution_config(command=command, prompt_template=prompt_template)
+
         max_id = 0
         seen_ids: set[int] = set()
         for status in _TASK_STATUSES:
@@ -140,16 +207,19 @@ class KanbanBoard:
                 task_id = row.get("id")
                 title = row.get("title")
                 color = row.get("color")
+                notes = row.get("notes", "")
                 if not isinstance(task_id, int) or task_id <= 0:
                     raise ValueError("task id must be a positive integer")
                 if task_id in seen_ids:
                     raise ValueError("task ids must be unique")
                 if not isinstance(title, str) or not title.strip():
                     raise ValueError("task title must be a non-empty string")
+                if not isinstance(notes, str):
+                    raise ValueError("task notes must be a string")
 
                 clean_color = validate_html_color(color)
                 clean_title = title.strip()
-                task = Task(id=task_id, title=clean_title, status=status, color=clean_color)
+                task = Task(id=task_id, title=clean_title, status=status, color=clean_color, notes=notes.strip())
                 board._tasks[task_id] = task
                 board._order[status].append(task_id)
                 seen_ids.add(task_id)

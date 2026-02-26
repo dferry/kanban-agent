@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from typing import Any
@@ -99,9 +98,12 @@ class _KanbanHandler(BaseHTTPRequestHandler):
         return payload
 
     def _serialize_task(self, task: Task) -> dict[str, Any]:
-        payload = asdict(task)
-        payload["status"] = task.status.value
-        return payload
+        return {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status.value,
+            "color": task.color,
+        }
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
         data = json.dumps(payload).encode("utf-8")
