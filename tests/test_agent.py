@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 import time
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,6 +37,21 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.stdout, "live output\n")
         self.assertEqual(captured_stdout.getvalue(), "live output\n")
+
+    def test_default_process_runner_echoes_stderr_to_program_stderr(self) -> None:
+        captured_stderr = StringIO()
+        with redirect_stderr(captured_stderr):
+            result = default_process_runner(
+                [
+                    "python",
+                    "-c",
+                    "import sys; print('live error', file=sys.stderr)",
+                ]
+            )
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stderr, "live error\n")
+        self.assertEqual(captured_stderr.getvalue(), "live error\n")
 
     def test_default_process_runner_captures_stdout_stderr_and_exit_code(self) -> None:
         result = default_process_runner(

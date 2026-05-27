@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -93,24 +94,23 @@ def default_process_runner(argv: list[str]) -> AgentRunResult:
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
 
-    def _consume_stream(stream: TextIO | None, chunks: list[str], *, echo_to_stdout: bool) -> None:
+    def _consume_stream(stream: TextIO | None, chunks: list[str], *, destination: TextIO) -> None:
         if stream is None:
             return
         for line in stream:
             chunks.append(line)
-            if echo_to_stdout:
-                print(line, end="", flush=True)
+            print(line, end="", file=destination, flush=True)
         stream.close()
 
     stdout_thread = Thread(
         target=_consume_stream,
         args=(process.stdout, stdout_chunks),
-        kwargs={"echo_to_stdout": True},
+        kwargs={"destination": sys.stdout},
     )
     stderr_thread = Thread(
         target=_consume_stream,
         args=(process.stderr, stderr_chunks),
-        kwargs={"echo_to_stdout": False},
+        kwargs={"destination": sys.stderr},
     )
     stdout_thread.start()
     stderr_thread.start()
