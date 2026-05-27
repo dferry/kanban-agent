@@ -21,7 +21,7 @@ Navigate to project directory and start the Kanban Agent with:
 
 
 ```bash
-PYTHONPATH=/path/to/this/repo python -m kanban.app --host 127.0.0.1 --port 8000
+python -m kanban.app --host 127.0.0.1 --port 8000
 ```
 
 By default, your board is automatically saved when closing program with X button and loaded when starting the agent. The board is stored as a hidden file as .board.json
